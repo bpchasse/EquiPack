@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">EquiPack</string>
+    <string name="hello_world">Hello world!</string>
+
+    <string name="option_drawer_title">Features</string>
+    <string name="settings_title">Settings</string>
+    <string name="preferences_title">Preferences</string>
+    <string name="dashboard_title">Dashboard</string>
+    <string name="weight_title">Content Weight</string>
+    <string name="feedback_title">Strap Optimization</string>
+    <string name="ble_title">BLE</string>
+
+    <string name="navigation_drawer_open">Open navigation drawer</string>
+    <string name="navigation_drawer_close">Close navigation drawer</string>
+
+    <string name="ble_fragment">BLE Fragment</string>
+    <string name="ble_main_btn">Test BLE!</string>
+    <string name="ble_btn">bleButton</string>
+
+    <string name="feedback_fragment">Feedback Fragment</string>
+
+    <string name="weight_fragment">Content Fragment</string>
+
+    <string name="dashboard_fragment">Dashboard Fragment</string>
+
+</resources>
