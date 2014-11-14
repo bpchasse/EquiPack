@@ -83,8 +83,12 @@ public class MainActivity extends Activity
       // Set up the drawer.
       mNavigationDrawerFragment.setUp(R.id.navigation_drawer,
                 (DrawerLayout) findViewById(R.id.drawer_layout));
+      //View myView = findViewById(R.id.option_drawer);
+      //MenuItem dashboardItem = (MenuItem) findViewById(R.id.option_drawer);
+      //dashboardItem.setVisible(false);
+     // this.invalidateOptionsMenu();
 
-      while(mBluetoothAdapter == null || !mBluetoothAdapter.isEnabled()) {
+      //while(mBluetoothAdapter == null || !mBluetoothAdapter.isEnabled()) {
         //Initialize Bluetooth adapter
         final BluetoothManager bluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
         mBluetoothAdapter = bluetoothManager.getAdapter();
@@ -93,7 +97,7 @@ public class MainActivity extends Activity
           Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
           startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
         }
-      }
+      //}
       /**
        * Must comment out to debug in emulator
        */
@@ -138,19 +142,19 @@ public class MainActivity extends Activity
     public void onNavigationDrawerItemSelected(int position) {
         Fragment fragment = null;
         switch(position) {
-            case (-1): //EquiPack Dashboard
+            case (0): //EquiPack Dashboard
                 fragment = new DashboardFragment();
                 mTitle = getString(R.string.app_name);
                 break;
-            case 0: //ContentWeightFragment
+            case 1: //ContentWeightFragment
                 fragment = new WeightFragment();
                 mTitle = getString(R.string.weight_title);
                 break;
-            case 1: //StrapOptimizationFragment
+            case 2: //StrapOptimizationFragment
                 fragment = new FeedbackFragment();
                 mTitle = getString(R.string.feedback_title);
                 break;
-            case 2: //BLEFragment
+            case 3: //BLEFragment
                 fragment = new BleFragment();
                 mTitle = getString(R.string.ble_title);
                 break;
@@ -161,7 +165,7 @@ public class MainActivity extends Activity
         }
         // update the main content by replacing fragments
         FragmentManager fragmentManager = getFragmentManager();
-        if(position < 2)
+        if(position < 3)
             fragmentManager.beginTransaction().replace(R.id.container, fragment).commit();
         else
             fragmentManager.beginTransaction().replace(R.id.container, fragment)
@@ -170,9 +174,10 @@ public class MainActivity extends Activity
 
     @Override
     public boolean onMenuItemSelected(int featureId, MenuItem item) {
-        if (item.getItemId() == R.id.action_settings) {
+        //Old preferences 
+        /*if (item.getItemId() == R.id.action_settings) {
             startActivity(new Intent(this, PreferencesActivity.class));
-        }
+        }*/
         return super.onMenuItemSelected(featureId, item);
     }
 
@@ -189,22 +194,20 @@ public class MainActivity extends Activity
         if (!mNavigationDrawerFragment.isDrawerOpen()) {
             // Only show items in the action bar relevant to this screen if the drawer is not showing.
             // Otherwise, let the drawerdecide what to show in the action bar.
-            getMenuInflater().inflate(R.menu.options, menu);
+
+            //getMenuInflater().inflate(R.menu.options, menu);
             restoreActionBar();
             return true;
         }
-        return super.onCreateOptionsMenu(menu);
+
+      return super.onCreateOptionsMenu(menu);
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         // Handle action bar item clicks here. The action bar will automatically handle clicks
         // on the Home/Up button, so long as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
-        if (id == R.id.action_settings) {
-            return true;
-        }
-        this.onNavigationDrawerItemSelected(-1);
+        this.onNavigationDrawerItemSelected(0);
         return super.onOptionsItemSelected(item);
     }
 
