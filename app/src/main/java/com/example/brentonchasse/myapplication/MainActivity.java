@@ -174,10 +174,6 @@ public class MainActivity extends Activity
 
     @Override
     public boolean onMenuItemSelected(int featureId, MenuItem item) {
-        //Old preferences 
-        /*if (item.getItemId() == R.id.action_settings) {
-            startActivity(new Intent(this, PreferencesActivity.class));
-        }*/
         return super.onMenuItemSelected(featureId, item);
     }
 
@@ -194,8 +190,6 @@ public class MainActivity extends Activity
         if (!mNavigationDrawerFragment.isDrawerOpen()) {
             // Only show items in the action bar relevant to this screen if the drawer is not showing.
             // Otherwise, let the drawerdecide what to show in the action bar.
-
-            //getMenuInflater().inflate(R.menu.options, menu);
             restoreActionBar();
             return true;
         }
