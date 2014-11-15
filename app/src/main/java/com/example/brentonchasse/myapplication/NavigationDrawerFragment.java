@@ -4,9 +4,6 @@ package com.example.brentonchasse.myapplication;
 import android.app.Activity;
 import android.app.ActionBar;
 import android.app.Fragment;
-import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothManager;
-import android.content.Context;
 import android.support.v4.app.ActionBarDrawerToggle;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
@@ -23,7 +20,6 @@ import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
-import android.widget.Toast;
 
 /**
  * Fragment used for managing interactions for and presentation of a navigation drawer.
@@ -51,7 +47,7 @@ public class NavigationDrawerFragment extends Fragment {
     private ListView mDrawerListView;
     private View mFragmentContainerView;
 
-    private int mCurrentSelectedPosition = 4;
+    private int mCurrentSelectedPosition = 5;
     private boolean mFromSavedInstanceState;
     private boolean mUserLearnedDrawer;
 
@@ -105,6 +101,7 @@ public class NavigationDrawerFragment extends Fragment {
                         getString(R.string.weight_title),
                         getString(R.string.feedback_title),
                         getString(R.string.ble_title),
+                        "Settings"
                 }));
         mDrawerListView.setItemChecked(mCurrentSelectedPosition, true);
         return mDrawerListView;

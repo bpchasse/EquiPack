@@ -1,0 +1,22 @@
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context="com.example.brentonchasse.myapplication.SettingsFragment">
+
+    <EditTextPreference
+        android:id="@string/settings_UUID_id"
+        android:title="@string/settings_UUID_title"
+        android:summary="@string/settings_UUID_summary"
+        android:key="@string/settings_UUID_key"
+        android:defaultValue="00000000-0000-0000-0000-000000000000"
+        android:inputType="number" />
+    <EditTextPreference
+        android:id="@string/settings_weight_id"
+        android:title="@string/settings_weight_title"
+        android:summary="@string/settings_weight_summary"
+        android:key="@string/settings_weight_key"
+        android:defaultValue="125"
+        android:inputType="number"/>
+
+</PreferenceScreen>

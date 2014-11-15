@@ -6,6 +6,7 @@ import android.app.ActionBar;
 import android.app.Fragment;
 import android.app.FragmentManager;
 import android.app.Service;
+import android.content.BroadcastReceiver;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
@@ -19,7 +20,6 @@ import android.content.Intent;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.IBinder;
-import android.os.Looper;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -34,8 +34,8 @@ import android.os.Handler;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.StringTokenizer;
 import java.util.UUID;
-//import java.util.logging.Handler;
 
 
 public class MainActivity extends Activity
@@ -43,7 +43,8 @@ public class MainActivity extends Activity
                    BleFragment.OnFragmentInteractionListener,
                    WeightFragment.OnFragmentInteractionListener,
                    FeedbackFragment.OnFragmentInteractionListener,
-                   DashboardFragment.OnFragmentInteractionListener {
+                   DashboardFragment.OnFragmentInteractionListener,
+                   SettingsFragment.OnFragmentInteractionListener {
 
     // Fragment managing the behaviors, interactions and presentation of the navigation drawer.
     private NavigationDrawerFragment mNavigationDrawerFragment;
@@ -55,11 +56,11 @@ public class MainActivity extends Activity
     private Handler mHandler;
     private LeDeviceListAdapter mLeDeviceListAdapter;
     private BluetoothLeService mBluetoothLeService;
+    private FragmentManager mFragmentManager;
     private boolean mScanning;
     //private final UUID[] EQUIPACK_UUID = {UUID.fromString("5A382F74-3182-412A-BDC6-6068BDFB0A48")};
+
     private int mConnectionState = 0;
-//15711333-6A4D-417A-A324-87F328798BEC
-    //54220ca215c056733cb34e9e34c40596d34253a0
     private static final int REQUEST_ENABLE_BT = 1;
     private static final long SCAN_PERIOD = 10000;
     private static final boolean AUTO_CONNECT_BOOL = true;
@@ -68,6 +69,9 @@ public class MainActivity extends Activity
     WeightFragment WeightFrag = new WeightFragment();
     FeedbackFragment FeedbackFrag = new FeedbackFragment();
     DashboardFragment DashboardFrag = new DashboardFragment();
+    SettingsFragment SettingsFrag = new SettingsFragment();
+    private Fragment currentFrag;
+    private String currentFragTag;
 
 
     @Override
@@ -79,16 +83,13 @@ public class MainActivity extends Activity
       mBluetoothLeService = new BluetoothLeService();
       mNavigationDrawerFragment = (NavigationDrawerFragment)
               getFragmentManager().findFragmentById(R.id.navigation_drawer);
+      mFragmentManager = getFragmentManager();
       mTitle = getTitle();
       // Set up the drawer.
       mNavigationDrawerFragment.setUp(R.id.navigation_drawer,
                 (DrawerLayout) findViewById(R.id.drawer_layout));
-      //View myView = findViewById(R.id.option_drawer);
-      //MenuItem dashboardItem = (MenuItem) findViewById(R.id.option_drawer);
-      //dashboardItem.setVisible(false);
-     // this.invalidateOptionsMenu();
 
-      //while(mBluetoothAdapter == null || !mBluetoothAdapter.isEnabled()) {
+      while(mBluetoothAdapter == null || !mBluetoothAdapter.isEnabled()) {
         //Initialize Bluetooth adapter
         final BluetoothManager bluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
         mBluetoothAdapter = bluetoothManager.getAdapter();
@@ -97,11 +98,11 @@ public class MainActivity extends Activity
           Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
           startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
         }
-      //}
+      }
       /**
        * Must comment out to debug in emulator
        */
-      //scanLeDevice(mBluetoothAdapter.isEnabled());
+      scanLeDevice(mBluetoothAdapter.isEnabled());
     }
 
     private void scanLeDevice(final boolean enable){
@@ -143,33 +144,44 @@ public class MainActivity extends Activity
         Fragment fragment = null;
         switch(position) {
             case (0): //EquiPack Dashboard
-                fragment = new DashboardFragment();
-                mTitle = getString(R.string.app_name);
-                break;
+              currentFrag = DashboardFrag;
+              currentFragTag = getString(R.string.app_name);
+              pushFragmentOntoStack(mFragmentManager, DashboardFrag, getString(R.string.app_name));
+              break;
             case 1: //ContentWeightFragment
-                fragment = new WeightFragment();
-                mTitle = getString(R.string.weight_title);
-                break;
+              currentFrag = WeightFrag;
+              currentFragTag = getString(R.string.weight_title);
+              pushFragmentOntoStack(mFragmentManager, WeightFrag, getString(R.string.weight_title));
+              break;
             case 2: //StrapOptimizationFragment
-                fragment = new FeedbackFragment();
-                mTitle = getString(R.string.feedback_title);
-                break;
+              currentFrag = FeedbackFrag;
+              currentFragTag = getString(R.string.feedback_title);
+              pushFragmentOntoStack(mFragmentManager, FeedbackFrag, getString(R.string.feedback_title));
+               break;
             case 3: //BLEFragment
-                fragment = new BleFragment();
-                mTitle = getString(R.string.ble_title);
-                break;
+              currentFrag = BleFrag;
+              currentFragTag = getString(R.string.ble_title);
+              pushFragmentOntoStack(mFragmentManager, BleFrag, getString(R.string.ble_title));
+               break;
+            case 4: //SettingsFragment
+              currentFrag = SettingsFrag;
+              currentFragTag = getString(R.string.settings_title);
+              pushFragmentOntoStack(mFragmentManager, SettingsFrag, getString(R.string.settings_title));
+               break;
             default:
-                fragment = new DashboardFragment();
-                mTitle = getString(R.string.app_name);
-                break;
+              pushFragmentOntoStack(mFragmentManager, DashboardFrag, getString(R.string.app_name));
+              break;
         }
-        // update the main content by replacing fragments
-        FragmentManager fragmentManager = getFragmentManager();
-        if(position < 3)
-            fragmentManager.beginTransaction().replace(R.id.container, fragment).commit();
-        else
-            fragmentManager.beginTransaction().replace(R.id.container, fragment)
-                    .addToBackStack("backFragment").commit();
+    }
+
+    public void pushFragmentOntoStack(FragmentManager fragmentManager, Fragment newFragment, String fragmentName) {
+        if(fragmentManager == null)
+          fragmentManager = getFragmentManager();
+
+        fragmentManager.beginTransaction()
+                .replace(R.id.container, newFragment)
+                .addToBackStack(fragmentName)
+                .commit();
     }
 
     @Override
@@ -177,11 +189,25 @@ public class MainActivity extends Activity
         return super.onMenuItemSelected(featureId, item);
     }
 
+    @Override
+    public void onBackPressed() {
+      if (mFragmentManager.getBackStackEntryCount() > 1) {
+        Log.i("MainActivity", "popping backstack");
+        mFragmentManager.popBackStackImmediate();
+      } else {
+        Log.i("MainActivity", "nothing on backstack, calling super");
+        mFragmentManager.popBackStackImmediate();
+        super.onBackPressed();
+      }
+    }
+
     public void restoreActionBar() {
         ActionBar actionBar = getActionBar();
-        actionBar.setNavigationMode(ActionBar.NAVIGATION_MODE_STANDARD);
-        actionBar.setDisplayShowTitleEnabled(true);
-        actionBar.setTitle(mTitle);
+        if (actionBar != null) {
+          actionBar.setNavigationMode(ActionBar.NAVIGATION_MODE_STANDARD);
+          actionBar.setDisplayShowTitleEnabled(true);
+          actionBar.setTitle(mTitle);
+        }
     }
 
 
@@ -189,7 +215,7 @@ public class MainActivity extends Activity
     public boolean onCreateOptionsMenu(Menu menu) {
         if (!mNavigationDrawerFragment.isDrawerOpen()) {
             // Only show items in the action bar relevant to this screen if the drawer is not showing.
-            // Otherwise, let the drawerdecide what to show in the action bar.
+            // Otherwise, let the drawer decide what to show in the action bar.
             restoreActionBar();
             return true;
         }
@@ -201,7 +227,6 @@ public class MainActivity extends Activity
     public boolean onOptionsItemSelected(MenuItem item) {
         // Handle action bar item clicks here. The action bar will automatically handle clicks
         // on the Home/Up button, so long as you specify a parent activity in AndroidManifest.xml.
-        this.onNavigationDrawerItemSelected(0);
         return super.onOptionsItemSelected(item);
     }
 
@@ -221,8 +246,9 @@ public class MainActivity extends Activity
 
         @Override
         public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-            View rootView = inflater.inflate(R.layout.fragment_options, container, false);
-            return rootView;
+          View rootView;
+          rootView = inflater.inflate(R.layout.fragment_options, container, false);
+          return rootView;
         }
     }
 
@@ -273,11 +299,9 @@ public class MainActivity extends Activity
     // Adapter for holding devices found through scanning.
     private class LeDeviceListAdapter extends BaseAdapter {
         private ArrayList<BluetoothDevice> mLeDevices;
-        private LayoutInflater mInflator;
         public LeDeviceListAdapter() {
             super();
             mLeDevices = new ArrayList<BluetoothDevice>();
-            mInflator = MainActivity.this.getLayoutInflater();
         }
         public void addDevice(BluetoothDevice device) {
             if(!mLeDevices.contains(device)) {
@@ -337,7 +361,7 @@ public class MainActivity extends Activity
         private static final String ACTION_GATT_DISCONNECTED =
                 "com.example.bluetooth.le.ACTION_GATT_DISCONNECTED";
         private static final String ACTION_GATT_SERVICES_DISCOVERED =
-                "com.example.bluetooth.le.ACTION_GATT_SERICED_DISCOVEREDsd";
+                "com.example.bluetooth.le.ACTION_GATT_SERICED_DISCOVERED";
         private static final String ACTION_DATA_AVAILABLE =
                 "com.example.bluetooth.le.ACTION_DATA_AVAILABLE";
         private static final String EXTRA_DATA =
@@ -393,5 +417,15 @@ public class MainActivity extends Activity
         public IBinder onBind(Intent intent) {
             return mBinder;
         }
+
+        @Override
+        public boolean onUnbind(Intent intent) {
+          // After using a given device, you should make sure that BluetoothGatt.close() is called
+          // such that resources are cleaned up properly.  In this particular example, close() is
+          // invoked when the UI is disconnected from the Service.
+          mBluetoothGatt.close();
+          return super.onUnbind(intent);
+        }
+
     }
 }
