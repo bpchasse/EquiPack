@@ -23,9 +23,14 @@
     <string name="dashboard_fragment">Dashboard Fragment</string>
     <string name="hello_blank_fragment">Hello blank fragment</string>
 
+    <string name="settings_device_name_id">deviceNamePreference</string>
+    <string name="settings_device_name_title">Device Name</string>
+    <string name="settings_device_name_summary">The unique identifier for your personal EquiPack</string>
+    <string name="settings_device_name_key">prefDeviceName</string>
+
     <string name="settings_UUID_id">UUIDPreference</string>
     <string name="settings_UUID_title">UUID</string>
-    <string name="settings_UUID_summary">The unique identifier for your personal EquiPack</string>
+    <string name="settings_UUID_summary">The unique device name for your personal EquiPack</string>
     <string name="settings_UUID_key">prefUUID</string>
 
     <string name="settings_weight_id">weightPreference</string>

@@ -4,6 +4,15 @@
     android:layout_height="match_parent"
     tools:context="com.example.brentonchasse.myapplication.SettingsFragment">
 
+    <!--Device Name-->
+    <EditTextPreference
+        android:id="@string/settings_device_name_id"
+        android:title="@string/settings_device_name_title"
+        android:summary="@string/settings_device_name_summary"
+        android:key="@string/settings_device_name_key"
+        android:defaultValue="@string/app_name" />
+
+    <!--UUID-->
     <EditTextPreference
         android:id="@string/settings_UUID_id"
         android:title="@string/settings_UUID_title"
@@ -11,6 +20,8 @@
         android:key="@string/settings_UUID_key"
         android:defaultValue="00000000-0000-0000-0000-000000000000"
         android:inputType="number" />
+
+    <!--User's Weight-->
     <EditTextPreference
         android:id="@string/settings_weight_id"
         android:title="@string/settings_weight_title"
@@ -18,5 +29,6 @@
         android:key="@string/settings_weight_key"
         android:defaultValue="125"
         android:inputType="number"/>
+
 
 </PreferenceScreen>

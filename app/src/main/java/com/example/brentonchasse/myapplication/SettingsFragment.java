@@ -2,9 +2,11 @@ package com.example.brentonchasse.myapplication;
 
 import android.app.ActionBar;
 import android.app.Activity;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
 import android.app.Fragment;
+import android.preference.Preference;
 import android.preference.PreferenceFragment;
 
 
@@ -18,7 +20,7 @@ import android.preference.PreferenceFragment;
  * create an instance of this fragment.
  *
  */
-public class SettingsFragment extends PreferenceFragment {
+public class SettingsFragment extends PreferenceFragment implements SharedPreferences.OnSharedPreferenceChangeListener {
     // TODO: Rename parameter arguments, choose names that match
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
     private static final String ARG_PARAM1 = "param1";
@@ -57,10 +59,32 @@ public class SettingsFragment extends PreferenceFragment {
         ActionBar actionbar = getActivity().getActionBar();
         actionbar.setTitle(getString(R.string.settings_title));
         addPreferencesFromResource(R.layout.fragment_settings);
-        if (getArguments() != null) {
-            mParam1 = getArguments().getString(ARG_PARAM1);
-            mParam2 = getArguments().getString(ARG_PARAM2);
+
+    }
+
+    public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key){
+      if(key.equals(getString(R.string.settings_device_name_key))){
+        Preference deviceNamePref = findPreference(key);
+        String newVal = sharedPreferences.getString(key, "");
+        if(!newVal.equals("")) {
+          deviceNamePref.setSummary(newVal);
+          MainActivity activity = (MainActivity) getActivity();
+          activity.setDeviceName(newVal);
         }
+      }
+    }
+
+    @Override
+    public void onResume() {
+      super.onResume();
+      getPreferenceManager().getSharedPreferences().registerOnSharedPreferenceChangeListener(this);
+
+    }
+
+    @Override
+    public void onPause() {
+      getPreferenceManager().getSharedPreferences().unregisterOnSharedPreferenceChangeListener(this);
+      super.onPause();
     }
 
     // TODO: Rename method, update argument and hook method into UI event

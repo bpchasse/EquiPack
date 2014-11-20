@@ -17,6 +17,7 @@ import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -36,6 +37,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.StringTokenizer;
 import java.util.UUID;
+import java.util.concurrent.Semaphore;
 
 
 public class MainActivity extends Activity
@@ -74,8 +76,12 @@ public class MainActivity extends Activity
     private Fragment currentFrag;
     private String currentFragTag;
 
+    public String mDeviceName;
 
-    @Override
+    private final Semaphore available = new Semaphore(1);
+
+
+  @Override
     protected void onCreate(Bundle savedInstanceState) {
       super.onCreate(savedInstanceState);
       setContentView(R.layout.activity_options);
@@ -86,13 +92,18 @@ public class MainActivity extends Activity
               getFragmentManager().findFragmentById(R.id.navigation_drawer);
       mFragmentManager = getFragmentManager();
       mTitle = getTitle();
-      // Set up the drawer.
-      mNavigationDrawerFragment.setUp(R.id.navigation_drawer,
-                (DrawerLayout) findViewById(R.id.drawer_layout));
+
+      // Set up the Navigation drawer.
+      mNavigationDrawerFragment.setUp(R.id.navigation_drawer,(DrawerLayout) findViewById(R.id.drawer_layout));
+
+      //Restore preferences
+      SharedPreferences myPreferences = getPreferences(MODE_PRIVATE);
+      mDeviceName = myPreferences.getString(getString(R.string.settings_device_name_key),
+                                                   getString(R.string.app_name));
+
       /**
        * Must comment out to debug in emulator
        */
-      while(mBluetoothAdapter == null || !mBluetoothAdapter.isEnabled()) {
         //Initialize Bluetooth adapter
         final BluetoothManager bluetoothManager
                 = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
@@ -101,9 +112,19 @@ public class MainActivity extends Activity
         if (mBluetoothAdapter == null || !mBluetoothAdapter.isEnabled()) {
           Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
           startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
+        }else if (mBluetoothAdapter != null && mBluetoothAdapter.isEnabled()){
+          scanLeDevice(mBluetoothAdapter.isEnabled());
         }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data){
+      if(requestCode == REQUEST_ENABLE_BT && resultCode == RESULT_CANCELED){
+        Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+        startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
+      } else if(requestCode == REQUEST_ENABLE_BT && resultCode == RESULT_OK){
+        scanLeDevice(mBluetoothAdapter.isEnabled());
       }
-      scanLeDevice(mBluetoothAdapter.isEnabled());
     }
 
     private void scanLeDevice(final boolean enable){
@@ -129,14 +150,27 @@ public class MainActivity extends Activity
             new BluetoothAdapter.LeScanCallback() {
                 @Override
                 public void onLeScan(final BluetoothDevice device, int rssi, byte[] scanRecord) {
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
+                      String deviceName = device.getName();
+                      if(deviceName != null && deviceName.equals(mDeviceName)){
+
+                        try {
+                          available.acquire();
+                        } catch (InterruptedException e) {
+                          e.printStackTrace();
+                        }
+
+                        runOnUiThread(new Runnable() {
+                          @Override
+                          public void run() {
                             mLeDeviceListAdapter.addDevice(device);
                             mLeDeviceListAdapter.notifyDataSetChanged();
-                            mBluetoothGatt = device.connectGatt(mBluetoothLeService, true, mBluetoothLeService.mGattCallback);
-                        }
-                    });
+                            mBluetoothGatt = device.connectGatt(mBluetoothLeService, false, mBluetoothLeService.mGattCallback);
+                            mScanning = false;
+                            mBluetoothAdapter.stopLeScan(mLeScanCallback);
+                          }
+                        });
+                        available.release();
+                    }
                 }
      };
 
@@ -236,7 +270,21 @@ public class MainActivity extends Activity
         BleFrag.onBleBtnClick(v);
     }
 
-    public void onFragmentInteraction(Uri uri) {    }
+    public void onFragmentInteraction(Uri uri) {  }
+
+    public void setDeviceName(String deviceName){ mDeviceName = deviceName; }
+
+    @Override
+    protected void onStop(){
+      super.onStop();
+
+      //Store the preferences in case they may have changes
+      SharedPreferences myPreferences = getPreferences(MODE_PRIVATE);
+      SharedPreferences.Editor editor = myPreferences.edit();
+      editor.putString(getString(R.string.settings_device_name_key), mDeviceName);
+      editor.commit();
+    }
+
 
     // Demonstrates how to iterate through the supported GATT
     // Services/Characteristics.
@@ -377,11 +425,14 @@ public class MainActivity extends Activity
             public void onServicesDiscovered(BluetoothGatt gatt, int status) {
               if (status == BluetoothGatt.GATT_SUCCESS) {
                   //broadcastUpdate(ACTION_GATT_SERVICES_DISCOVERED, null);
-                  List<BluetoothGattService> btServices = gatt.getServices();
+                  BluetoothDevice connectedDevice = gatt.getDevice();
+                  String deviceName = connectedDevice.getName();
+                  UUID  serviceUUID = UUID.fromString("00001111-0000-1000-8000-00805f9b34fb");
+                  BluetoothGattService btServices = gatt.getService(serviceUUID);
 
-                  Log.i(TAG, "Status onServiceDuscovered: " + status);
+                  Log.i(TAG, "Status onServiceDiscovered: " + status);
               } else {
-                  Log.w(TAG, "onServicesDiscovered received: " + status);
+                  Log.i(TAG, "onServicesDiscovered received: " + status);
                }
             }
             @Override
