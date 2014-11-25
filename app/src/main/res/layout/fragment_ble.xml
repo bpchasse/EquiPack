@@ -1,19 +1,67 @@
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="#CBA"
     tools:context="com.example.brentonchasse.myapplication.BleFragment">
 
     <!-- TODO: Update blank fragment layout -->
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:text="@string/ble_fragment" />
-    <Button
-        android:id="@string/ble_btn"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/ble_main_btn"
-        android:onClick="onFragmentClickEvent"/>
+    <ScrollView
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent"
+        android:layout_gravity="top"
+        android:scrollbars="vertical"
+        android:fillViewport="true"
+        android:layout_marginLeft="10dp"
+        android:layout_marginRight="10dp"
+        android:layout_marginTop="10dp"
+        android:layout_marginBottom="70dp">
+        <TextView
+            android:id="@+id/ble_fragment_log_id"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:padding="10dp"
+            android:background="#f9f8f6"
+            android:text="@string/ble_fragment" />
+    </ScrollView>
 
-</FrameLayout>
+    <LinearLayout
+        android:layout_width="fill_parent"
+        android:layout_height="50dp"
+        android:layout_alignParentBottom="true"
+        android:layout_marginBottom="10dp"
+        android:layout_marginRight="10dp"
+        android:layout_marginLeft="10dp"
+        android:orientation="horizontal">
+        <Button
+            android:layout_weight="1"
+            android:id="@+id/ble_fragment_connect_btn"
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent"
+            android:text="@string/ble_connect_btn"
+            android:onClick="onFragmentClickEvent"/>
+        <Button
+            android:layout_weight="1"
+            android:id="@+id/ble_fragment_notify_btn"
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent"
+            android:text="@string/ble_notify_btn"
+            android:onClick="onFragmentClickEvent"/>
+        <Button
+            android:layout_weight="1"
+            android:id="@+id/ble_fragment_writeA1_btn"
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent"
+            android:text="@string/ble_writeA1_btn"
+            android:onClick="onFragmentClickEvent"/>
+        <Button
+            android:layout_weight="1"
+            android:id="@+id/ble_fragment_loopA2_btn"
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent"
+            android:text="@string/ble_loopA2_btn"
+            android:onClick="onFragmentClickEvent"/>
+
+    </LinearLayout>
+
+</RelativeLayout>

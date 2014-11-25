@@ -12,14 +12,35 @@
         android:key="@string/settings_device_name_key"
         android:defaultValue="@string/app_name" />
 
-    <!--UUID-->
+    <!--Service UUID-->
     <EditTextPreference
-        android:id="@string/settings_UUID_id"
-        android:title="@string/settings_UUID_title"
-        android:summary="@string/settings_UUID_summary"
-        android:key="@string/settings_UUID_key"
-        android:defaultValue="00000000-0000-0000-0000-000000000000"
-        android:inputType="number" />
+        android:id="@string/settings_UUIDService_id"
+        android:title="@string/settings_UUIDService_title"
+        android:summary="@string/settings_UUIDService_summary"
+        android:key="@string/settings_UUIDService_key"
+        android:defaultValue="@string/settings_UUIDService_default"/>
+    <!--Charactristic Read UUID-->
+    <EditTextPreference
+        android:id="@string/settings_UUIDCharacteristicR_id"
+        android:title="@string/settings_UUIDCharacteristicR_title"
+        android:summary="@string/settings_UUIDCharacteristicR_summary"
+        android:key="@string/settings_UUIDCharacteristicR_key"
+        android:defaultValue="@string/settings_UUIDCharacteristicR_default"/>
+    <!--Charactristic Write UUID-->
+    <EditTextPreference
+        android:id="@string/settings_UUIDCharacteristicW_id"
+        android:title="@string/settings_UUIDCharacteristicW_title"
+        android:summary="@string/settings_UUIDCharacteristicW_summary"
+        android:key="@string/settings_UUIDCharacteristicW_key"
+        android:defaultValue="@string/settings_UUIDCharacteristicW_default"/>
+    <!--Charactristic Write Value-->
+    <EditTextPreference
+        android:id="@string/settings_writeValue_id"
+        android:title="@string/settings_writeValue_title"
+        android:summary="@string/settings_writeValue_summary"
+        android:key="@string/settings_writeValue_key"
+        android:defaultValue="@string/settings_writeValue_default"/>
+
 
     <!--User's Weight-->
     <EditTextPreference

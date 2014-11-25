@@ -6,8 +6,11 @@
     <string name="navigation_drawer_open">Open navigation drawer</string>
     <string name="navigation_drawer_close">Close navigation drawer</string>
 
-    <string name="ble_main_btn">Test BLE!</string>
+    <string name="ble_connect_btn">Connect</string>
     <string name="ble_btn">bleButton</string>
+    <string name="ble_writeA1_btn">Write</string>
+    <string name="ble_loopA2_btn">Poll Sensors</string>
+    <string name="ble_notify_btn">Notify</string>
 
     <string name="ble_title">BLE</string>
     <string name="settings_title">Settings</string>
@@ -23,18 +26,48 @@
     <string name="dashboard_fragment">Dashboard Fragment</string>
     <string name="hello_blank_fragment">Hello blank fragment</string>
 
+    <string name="ble_fragment_log_id">BLELogID</string>
+
     <string name="settings_device_name_id">deviceNamePreference</string>
     <string name="settings_device_name_title">Device Name</string>
     <string name="settings_device_name_summary">The unique identifier for your personal EquiPack</string>
     <string name="settings_device_name_key">prefDeviceName</string>
 
-    <string name="settings_UUID_id">UUIDPreference</string>
-    <string name="settings_UUID_title">UUID</string>
-    <string name="settings_UUID_summary">The unique device name for your personal EquiPack</string>
-    <string name="settings_UUID_key">prefUUID</string>
+    <string name="settings_UUIDService_id">UUIDServicePreference</string>
+    <string name="settings_UUIDService_title">Service UUID</string>
+    <string name="settings_UUIDService_summary">The unique device name for your personal EquiPack</string>
+    <string name="settings_UUIDService_key">prefServiceUUID</string>
+    <string name="settings_UUIDService_default">00001111-0000-1000-8000-00805f9b34fb</string>
+
+    <string name="settings_UUIDCharacteristicR_id">UUIDCharacteristicWPreference</string>
+    <string name="settings_UUIDCharacteristicR_title">"Read" Characteristic UUID</string>
+    <string name="settings_UUIDCharacteristicR_summary">The unique Read characteristic of your EquiPack</string>
+    <string name="settings_UUIDCharacteristicR_key">prefCharacteristicRUUID</string>
+    <string name="settings_UUIDCharacteristicR_default">00002222-0000-1000-8000-00805f9b34fb</string>
+
+    <string name="settings_UUIDCharacteristicW_id">UUIDCharacteristicWPreference</string>
+    <string name="settings_UUIDCharacteristicW_title">"Write" Characteristic UUID</string>
+    <string name="settings_UUIDCharacteristicW_summary">The unique Write characteristic of your EquiPack</string>
+    <string name="settings_UUIDCharacteristicW_key">prefCharacteristicWUUID</string>
+    <string name="settings_UUIDCharacteristicW_default">00002223-0000-1000-8000-00805f9b34fb</string>
+
+    <string name="settings_writeValue_id">UUIDWriteValuePreference</string>
+    <string name="settings_writeValue_title">Write value</string>
+    <string name="settings_writeValue_summary">The value you would like to write in BLE testing (20 bytes)</string>
+    <string name="settings_writeValue_key">prefWriteValue</string>
+    <string name="settings_writeValue_default">01abcdef12345678900000000000000000000000</string>
 
     <string name="settings_weight_id">weightPreference</string>
     <string name="settings_weight_title">Weight (lbs)</string>
     <string name="settings_weight_summary">Your weight</string>
     <string name="settings_weight_key">prefWeight</string>
+    <string name="settings_weight_default">140</string>
+
+    <string name="UUID_regex">[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}</string>
+    <string name="writeValue_regex">[0]{1}-[12]{1}-[a-fA-F0-9]{0,38}</string>
+
+    <string name="bleBundleSetup">bleBundleSetup</string>
+    <string name="bleLogCharsSetup">bleLogCharsSetup</string>
+    <string name="bleButtonStates">bleButtonStates</string>
+
 </resources>
