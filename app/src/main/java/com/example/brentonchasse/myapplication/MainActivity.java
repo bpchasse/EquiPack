@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.app.ActionBar;
 import android.app.Fragment;
 import android.app.FragmentManager;
+import android.app.PendingIntent;
 import android.app.Service;
 import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothAdapter;
@@ -15,24 +16,27 @@ import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
+import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.graphics.PorterDuff;
+import android.net.LocalServerSocket;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.telephony.SmsManager;
+import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.view.Menu;
-import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewGroup;
 import android.net.Uri;
 import android.support.v4.widget.DrawerLayout;
-import android.widget.BaseAdapter;
 import android.os.Handler;
-import android.widget.Button;
+import android.widget.Toast;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Semaphore;
@@ -61,9 +65,9 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
     private BluetoothAdapter mBluetoothAdapter;
     private BluetoothGatt mBluetoothGatt;
     private Handler mHandler;
-    private BluetoothLeService mBluetoothLeService;
     private FragmentManager mFragmentManager;
 
+    private BluetoothLeService mBluetoothLeService;
     private BluetoothGattService mService;
 
     private List<BluetoothGattCharacteristic> mCharacteristicList;
@@ -92,7 +96,6 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
     private final Semaphore available = new Semaphore(1);
     private final Semaphore logLock = new Semaphore(1);
 
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -109,7 +112,8 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
 
         //Restore preferences
         SharedPreferences myPreferences = getSharedPreferences("userPrefs", MODE_PRIVATE);
-        mDeviceName = myPreferences.getString(getString(R.string.settings_device_name_key),
+        mDeviceName = myPreferences.getString(
+                getString(R.string.settings_device_name_key),
                 getString(R.string.app_name));
         mPrefUUIDCharacteristicReadString = myPreferences.getString(
                 getString(R.string.settings_UUIDCharacteristicR_key),
@@ -119,17 +123,32 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                 getString(R.string.settings_UUIDCharacteristicW_key),
                 getString(R.string.settings_UUIDCharacteristicW_default));
         mPrefUUIDCharacteristicWrite = UUID.fromString(mPrefUUIDCharacteristicWriteString);
-        mPrefUUIDServiceString = myPreferences.getString(getString(R.string.settings_UUIDService_key),
+        mPrefUUIDServiceString = myPreferences.getString(
+                getString(R.string.settings_UUIDService_key),
                 getString(R.string.settings_UUIDService_default));
         mPrefUUIDService = UUID.fromString(mPrefUUIDServiceString);
-        mPrefWeight = myPreferences.getInt(getString(R.string.settings_weight_key),
+        mPrefWeight = myPreferences.getInt(
+                getString(R.string.settings_weight_key),
                 Integer.parseInt(getString(R.string.settings_weight_default)));
-        mPrefWriteValue = hexStringToByteArray(myPreferences.getString(getString(R.string.settings_writeValue_key),
+        mPrefWriteValue = hexStringToByteArray(myPreferences.getString(
+                getString(R.string.settings_writeValue_key),
                 getString(R.string.settings_writeValue_default)));
 
 
         //Initialize Bluetooth adapter
         //enableBLEThenScan();
+        sendSMS("8603028885", "Hello");
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+
+        //Store the preferences in case they may have changes
+        SharedPreferences myPreferences = getPreferences(MODE_PRIVATE);
+        SharedPreferences.Editor editor = myPreferences.edit();
+        editor.putString(getString(R.string.settings_device_name_key), mDeviceName);
+        editor.apply();
     }
 
     @Override
@@ -142,72 +161,6 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
         }
     }
 
-    public void enableBLEThenScan() {
-        final BluetoothManager bluetoothManager
-                = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
-        mBluetoothAdapter = bluetoothManager.getAdapter();
-        //Enable Bluetooth
-        if (mBluetoothAdapter == null || !mBluetoothAdapter.isEnabled()) {
-            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-            startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
-            logBle("Requesting user to turn BLE ON\n");
-        } else if (mBluetoothAdapter != null && mBluetoothAdapter.isEnabled()) {
-            logBle("scanLeDevice(): called\n");
-            scanLeDevice(mBluetoothAdapter.isEnabled());
-        }
-    }
-
-    private void scanLeDevice(final boolean enable) {
-        if (enable) {
-            mHandler.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    if (mScanning) logBle("scanLeDevice(): No correct " +
-                            "device was found -> scan stopping\n");
-                    mScanning = false;
-                    mBluetoothAdapter.stopLeScan(mLeScanCallback);
-                }
-            }, SCAN_PERIOD);
-
-            mScanning = true;
-            mBluetoothAdapter.startLeScan(mLeScanCallback);
-            logBle("scanLeDevice(): scan started\n");
-        } else {
-            mScanning = false;
-            mBluetoothAdapter.stopLeScan(mLeScanCallback);
-        }
-    }
-
-    // Device scan callback.
-    private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
-        @Override
-        public void onLeScan(final BluetoothDevice device, int rssi, byte[] scanRecord) {
-            String deviceName = device.getName();
-            if (deviceName != null && deviceName.equals(mDeviceName)) {
-                try {
-                    available.acquire();
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        logBle("mLeScanCallback: Preferred Device Found!\n");
-                        logBle("mLeScanCallback: CONNECTING to device's GATT server\n");
-                        mBluetoothGatt = device.connectGatt(mBluetoothLeService,
-                                false,
-                                mBluetoothLeService.mGattCallback);
-                        mScanning = false;
-                        logBle("scanLeDevice(): scan stopping\n");
-                        mBluetoothAdapter.stopLeScan(mLeScanCallback);
-                    }
-                });
-                available.release();
-            }
-        }
-    };
-
     @Override
     //TODO: use arrays to store the fragment and tag locations
     public void onNavigationDrawerItemSelected(int position) {
@@ -215,37 +168,36 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
             case (0): //EquiPack Dashboard
                 currentFrag = DashboardFrag;
                 currentFragTag = getString(R.string.app_name);
-                pushFragmentOntoStack(mFragmentManager, DashboardFrag, getString(R.string.app_name));
+                pushFragmentOntoStack(mFragmentManager, DashboardFrag, currentFragTag);
                 break;
             case 1: //ContentWeightFragment
                 currentFrag = WeightFrag;
                 currentFragTag = getString(R.string.weight_title);
-                pushFragmentOntoStack(mFragmentManager, WeightFrag, getString(R.string.weight_title));
+                pushFragmentOntoStack(mFragmentManager, WeightFrag, currentFragTag);
                 break;
             case 2: //StrapOptimizationFragment
                 currentFrag = FeedbackFrag;
                 currentFragTag = getString(R.string.feedback_title);
-                pushFragmentOntoStack(mFragmentManager, FeedbackFrag, getString(R.string.feedback_title));
+                pushFragmentOntoStack(mFragmentManager, FeedbackFrag, currentFragTag);
                 break;
             case 3: //BLEFragment
                 currentFrag = BleFrag;
                 currentFragTag = getString(R.string.ble_title);
-                pushFragmentOntoStack(mFragmentManager, BleFrag, getString(R.string.ble_title));
+                pushFragmentOntoStack(mFragmentManager, BleFrag, currentFragTag);
                 break;
             case 4: //SettingsFragment
                 currentFrag = SettingsFrag;
                 currentFragTag = getString(R.string.settings_title);
-                pushFragmentOntoStack(mFragmentManager, SettingsFrag, getString(R.string.settings_title));
+                pushFragmentOntoStack(mFragmentManager, SettingsFrag, currentFragTag);
                 break;
             default:
+                currentFragTag = "DefaultFragmentCase";
                 pushFragmentOntoStack(mFragmentManager, DashboardFrag, getString(R.string.app_name));
                 break;
         }
     }
 
-    public void pushFragmentOntoStack(FragmentManager fragmentManager,
-                                      Fragment newFragment,
-                                      String fragmentName) {
+    public void pushFragmentOntoStack(FragmentManager fragmentManager,Fragment newFragment,String fragmentName) {
         if (fragmentManager == null)
             fragmentManager = getFragmentManager();
 
@@ -256,17 +208,10 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
     }
 
     @Override
-    public boolean onMenuItemSelected(int featureId, MenuItem item) {
-        return super.onMenuItemSelected(featureId, item);
-    }
-
-    @Override
     public void onBackPressed() {
         if (mFragmentManager.getBackStackEntryCount() > 1) {
-            Log.i("MainActivity", "popping backstack");
             mFragmentManager.popBackStackImmediate();
         } else {
-            Log.i("MainActivity", "nothing on backstack, calling super");
             mFragmentManager.popBackStackImmediate();
             super.onBackPressed();
         }
@@ -284,20 +229,11 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         if (!mNavigationDrawerFragment.isDrawerOpen()) {
-            // Only show items in the action bar relevant to this screen if the drawer is not showing.
-            // Otherwise, let the drawer decide what to show in the action bar.
             restoreActionBar();
             return true;
         }
 
         return super.onCreateOptionsMenu(menu);
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will automatically handle clicks
-        // on the Home/Up button, so long as you specify a parent activity in AndroidManifest.xml.
-        return super.onOptionsItemSelected(item);
     }
 
     public void onFragmentClickEvent(View v) {
@@ -309,7 +245,6 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
             BleFrag.enablePoll(false);
             enableBLEThenScan();
         } else if (v == BleFrag.getBLEWriteBtn()) {
-            //byte[] data = hexStringToByteArray("01abcdef12345678900000000000000000000000");
             logBle("onFragmentClickEvent: Writing value event triggered\n");
             setCharacteristic(mCharacteristicWrite, mPrefWriteValue);
         } else if (v == BleFrag.getBLELoopBtn()) {
@@ -324,80 +259,90 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                 logBle("onFragmentClickEvent: Stopping polling event triggered\n");
                 BleFrag.getBLELoopBtn().getBackground().setColorFilter(0xFF00ff00, PorterDuff.Mode.MULTIPLY);
             }
-        }else if (v == BleFrag.getBLENotifyBtn()) {
+        } else if (v == BleFrag.getBLENotifyBtn()) {
             logBle("onFragmentClickEvent(): Attempting to enable notifications on \"Read\" characteristic\n");
             setNotifications(mCharacteristicRead, true);
+        } else if (v == DashboardFrag.getAddDataBtn()) {
+            //int x = DashboardFrag.getXFromInput();
+            int y = DashboardFrag.getYFromInput();
+            DashboardFrag.addDataPoint(y);
+
         }
     }
 
-    public void onFragmentInteraction(Uri uri) {
-    }
+    public void onFragmentInteraction(Uri uri) {}
 
-    public void setDeviceName(String deviceName) {
-        mDeviceName = deviceName;
-    }
-
-    public void setPrefServiceUUID(String prefUUID) {
-        mPrefUUIDService = UUID.fromString(prefUUID);
-    }
-
-    public void setPrefReadUUID(String prefUUID) {
-        mPrefUUIDCharacteristicRead = UUID.fromString(prefUUID);
-    }
-
-    public void setPrefWriteUUID(String prefUUID) {
-        mPrefUUIDCharacteristicWrite = UUID.fromString(prefUUID);
-    }
-
-    public void setPrefWriteValue(String writePref) {
-        mPrefWriteValue = hexStringToByteArray(writePref);
-    }
-
-
-    public void setPrefWeight(int prefWeight) {
-        mPrefWeight = prefWeight;
-    }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
-
-        //Store the preferences in case they may have changes
-        SharedPreferences myPreferences = getPreferences(MODE_PRIVATE);
-        SharedPreferences.Editor editor = myPreferences.edit();
-        editor.putString(getString(R.string.settings_device_name_key), mDeviceName);
-        editor.apply();
-    }
-
-    // Adapter for holding devices found through scanning.
-    private class LeDeviceListAdapter extends BaseAdapter {
-        private ArrayList<BluetoothDevice> mLeDevices;
-
-        public LeDeviceListAdapter() {
-            super();
-            mLeDevices = new ArrayList<BluetoothDevice>();
+    public static byte[] hexStringToByteArray(String s) {
+        int len = s.length();
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
+                    + Character.digit(s.charAt(i+1), 16));
         }
-
-        @Override
-        public int getCount() {
-            return mLeDevices.size();
-        }
-
-        @Override
-        public Object getItem(int i) {
-            return mLeDevices.get(i);
-        }
-
-        @Override
-        public long getItemId(int i) {
-            return i;
-        }
-
-        @Override
-        public View getView(int i, View view, ViewGroup viewGroup) {
-            return view;
-        }
+        return data;
     }
+
+    /**
+     * SMS sending related functions
+     */
+    private void sendSMS(String phoneNumber, String message) {
+        String SENT = "SMS_SENT";
+        String DELIVERED = "SMS_DELIVERED";
+
+        PendingIntent sentPI = PendingIntent.getBroadcast(this, 0, new Intent(SENT), 0);
+        PendingIntent deliveredPI = PendingIntent.getBroadcast(this, 0, new Intent(DELIVERED), 0);
+
+        // When the SMS has been sent
+        registerReceiver(new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                switch (getResultCode())
+                {
+                    case Activity.RESULT_OK:
+                        Toast.makeText(getBaseContext(), "SMS sent", Toast.LENGTH_SHORT).show();
+                        break;
+                    case SmsManager.RESULT_ERROR_GENERIC_FAILURE:
+                        Toast.makeText(getBaseContext(), "Generic failure", Toast.LENGTH_SHORT).show();
+                        break;
+                    case SmsManager.RESULT_ERROR_NO_SERVICE:
+                        Toast.makeText(getBaseContext(), "No service", Toast.LENGTH_SHORT).show();
+                        break;
+                    case SmsManager.RESULT_ERROR_NULL_PDU:
+                        Toast.makeText(getBaseContext(), "Null PDU", Toast.LENGTH_SHORT).show();
+                        break;
+                    case SmsManager.RESULT_ERROR_RADIO_OFF:
+                        Toast.makeText(getBaseContext(), "Radio off", Toast.LENGTH_SHORT).show();
+                        break;
+                }
+            }
+        }, new IntentFilter(SENT));
+
+        // When the SMS has been delivered
+        registerReceiver(new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                switch (getResultCode())
+                {
+                    case Activity.RESULT_OK:
+                        Toast.makeText(getBaseContext(), "SMS delivered", Toast.LENGTH_SHORT).show();
+                        break;
+                    case Activity.RESULT_CANCELED:
+                        Toast.makeText(getBaseContext(), "SMS not delivered", Toast.LENGTH_SHORT).show();
+                        break;
+                }
+            }
+        }, new IntentFilter(DELIVERED));
+
+        //Send the phoneNumber a message, with sent and delivered pending intents
+        SmsManager sms = SmsManager.getDefault();
+        sms.sendTextMessage(phoneNumber, null, message, sentPI, deliveredPI);
+    }
+
+
+
+    /**
+     * BLE related functions
+     */
 
     private void logBle(final String newLog) {
         try {
@@ -433,7 +378,29 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
         logLock.release();
     }
 
+    public void setDeviceName(String deviceName) {
+        mDeviceName = deviceName;
+    }
 
+    public void setPrefServiceUUID(String prefUUID) {
+        mPrefUUIDService = UUID.fromString(prefUUID);
+    }
+
+    public void setPrefReadUUID(String prefUUID) {
+        mPrefUUIDCharacteristicRead = UUID.fromString(prefUUID);
+    }
+
+    public void setPrefWriteUUID(String prefUUID) {
+        mPrefUUIDCharacteristicWrite = UUID.fromString(prefUUID);
+    }
+
+    public void setPrefWriteValue(String writePref) {
+        mPrefWriteValue = hexStringToByteArray(writePref);
+    }
+
+    public void setPrefWeight(int prefWeight) {
+        mPrefWeight = prefWeight;
+    }
 
     public void setCharacteristic(BluetoothGattCharacteristic characteristic, byte[] data) {
         if (characteristic != null && data != null && mBluetoothGatt != null
@@ -501,22 +468,75 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
      * @return Returns true if property is supports notification
      */
     public boolean isCharacterisiticNotifiable(BluetoothGattCharacteristic pChar) {
-        return (pChar.getProperties() & BluetoothGattCharacteristic.PROPERTY_NOTIFY) != 0;
+        int properties = pChar.getProperties();
+        return (properties & BluetoothGattCharacteristic.PROPERTY_NOTIFY) != 0;
     }
 
-    public static byte[] hexStringToByteArray(String s) {
-        int len = s.length();
-        byte[] data = new byte[len / 2];
-        for (int i = 0; i < len; i += 2) {
-            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
-                    + Character.digit(s.charAt(i+1), 16));
+    public void enableBLEThenScan() {
+        final BluetoothManager bluetoothManager
+                = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+        mBluetoothAdapter = bluetoothManager.getAdapter();
+        //Enable Bluetooth
+        if (mBluetoothAdapter == null || !mBluetoothAdapter.isEnabled()) {
+            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+            startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
+            logBle("Requesting user to turn BLE ON\n");
+        } else if (mBluetoothAdapter != null && mBluetoothAdapter.isEnabled()) {
+            logBle("scanLeDevice(): called\n");
+            scanLeDevice(mBluetoothAdapter.isEnabled());
         }
-        return data;
+    }
+
+    private void scanLeDevice(final boolean enable) {
+        if (enable) {
+            mHandler.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    if (mScanning) logBle("scanLeDevice(): No correct " +
+                            "device was found -> scan stopping\n");
+                    mScanning = false;
+                    mBluetoothAdapter.stopLeScan(mLeScanCallback);
+                }
+            }, SCAN_PERIOD);
+
+            mScanning = true;
+            mBluetoothAdapter.startLeScan(mLeScanCallback);
+            logBle("scanLeDevice(): scan started\n");
+        } else {
+            mScanning = false;
+            mBluetoothAdapter.stopLeScan(mLeScanCallback);
+        }
     }
 
 
+    // Device scan callback.
+    private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
+        @Override
+        public void onLeScan(final BluetoothDevice device, int rssi, byte[] scanRecord) {
+            String deviceName = device.getName();
+            if (deviceName != null && deviceName.equals(mDeviceName) && mScanning) {
+                try {
+                    available.acquire();
+                    mScanning = false;
+                    //mBluetoothAdapter.stopLeScan(mLeScanCallback);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
 
-
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        logBle("mLeScanCallback: Preferred Device Found!\n");
+                        logBle("mLeScanCallback: CONNECTING to device's GATT server\n");
+                        mBluetoothAdapter.stopLeScan(mLeScanCallback);
+                        mBluetoothGatt = device.connectGatt(mBluetoothLeService, false, mBluetoothLeService.mGattCallback);
+                        logBle("scanLeDevice(): scan stopping\n");
+                    }
+                });
+                available.release();
+            }
+        }
+    };
 
     private class BluetoothLeService extends Service {
         final protected char[] hexArray = "0123456789ABCDEF".toCharArray();
@@ -526,6 +546,7 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
 
 
         public final BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
+
 
             @Override
             public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
@@ -601,6 +622,7 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                     logBle("onCharacteristicRead(): Successfully read Characteristic:\n                       "
                             + characteristic.getUuid().toString() + "\n" + "                       Value:  0x"
                             + bytesToHex(mCharacteristicValue) + "\n");
+
                     BleFrag.enableNotify(true);
                 }
             }
@@ -694,7 +716,4 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
             return null;
         }
     }
-
-
-
 }

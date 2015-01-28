@@ -41,10 +41,10 @@ public class BleFragment extends Fragment {
     public TextView mTextView;
     private Bundle savedState = null;
 
-    private Button connectBtn;
-    private Button notifyBtn;
-    private Button writeBtn;
-    private Button pollBtn;
+    private Button mConnectBtn;
+    private Button mNotifyBtn;
+    private Button mWriteBtn;
+    private Button mPollBtn;
     private boolean[] buttonStates = new boolean[6];
 
 
@@ -98,28 +98,20 @@ public class BleFragment extends Fragment {
     @Override
     public void onActivityCreated(Bundle savedInstanceState){
         super.onActivityCreated(savedInstanceState);
-        connectBtn = (Button) getView().findViewById(R.id.ble_fragment_connect_btn);
-        connectBtn.setBackgroundResource(android.R.drawable.btn_default);
-        connectBtn.setEnabled(true);
-        connectBtn.setClickable(true);
+        mConnectBtn = (Button) getView().findViewById(R.id.ble_fragment_connect_btn);
+        mConnectBtn.setBackgroundResource(android.R.drawable.btn_default);
+        mConnectBtn.setEnabled(true);
+        mConnectBtn.setClickable(true);
 
-        notifyBtn = (Button) getView().findViewById(R.id.ble_fragment_notify_btn);
-        notifyBtn.setBackgroundResource(android.R.drawable.btn_default);
-        //notifyBtn.setEnabled(false);
-        //notifyBtn.setClickable(false);
-        notifyBtn.setBackgroundResource(android.R.drawable.btn_default);
+        mNotifyBtn = (Button) getView().findViewById(R.id.ble_fragment_notify_btn);
+        mNotifyBtn.setBackgroundResource(android.R.drawable.btn_default);
 
-        writeBtn = (Button) getView().findViewById(R.id.ble_fragment_writeA1_btn);
-        writeBtn.setBackgroundResource(android.R.drawable.btn_default);
-        //writeBtn.setEnabled(false);
-        //writeBtn.setClickable(false);
-        writeBtn.setBackgroundResource(android.R.drawable.btn_default);
+        mWriteBtn = (Button) getView().findViewById(R.id.ble_fragment_writeA1_btn);
+        mWriteBtn.setBackgroundResource(android.R.drawable.btn_default);
 
-        pollBtn = (Button) getView().findViewById(R.id.ble_fragment_loopA2_btn);
-        pollBtn.setBackgroundResource(android.R.drawable.btn_default);
-        //pollBtn.setEnabled(false);
-        //pollBtn.setClickable(false);
-        pollBtn.getBackground().setColorFilter(0xFF00ff00, PorterDuff.Mode.MULTIPLY);
+        mPollBtn = (Button) getView().findViewById(R.id.ble_fragment_loopA2_btn);
+        mPollBtn.setBackgroundResource(android.R.drawable.btn_default);
+        mPollBtn.getBackground().setColorFilter(0xFF00ff00, PorterDuff.Mode.MULTIPLY);
 
         enableNotify(buttonStates[0]);
         enableWrite(buttonStates[2]);
@@ -149,23 +141,23 @@ public class BleFragment extends Fragment {
     }
 
     public Button getBLEConnectBtn() {
-      return connectBtn;
+      return mConnectBtn;
     }
 
     public Button getBLEWriteBtn() {
-        return writeBtn;
+        return mWriteBtn;
     }
 
-    public Button getBLELoopBtn() { return pollBtn; }
+    public Button getBLELoopBtn() { return mPollBtn; }
 
-    public Button getBLENotifyBtn() { return notifyBtn; }
+    public Button getBLENotifyBtn() { return mNotifyBtn; }
 
     public void enableNotify(final boolean condition) {
         getActivity().runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                notifyBtn.setClickable(condition);
-                notifyBtn.setEnabled(condition);
+                mNotifyBtn.setClickable(condition);
+                mNotifyBtn.setEnabled(condition);
             }
         });
     }
@@ -174,8 +166,8 @@ public class BleFragment extends Fragment {
         getActivity().runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                writeBtn.setClickable(condition);
-                writeBtn.setEnabled(condition);
+                mWriteBtn.setClickable(condition);
+                mWriteBtn.setEnabled(condition);
             }
         });
     }
@@ -184,8 +176,8 @@ public class BleFragment extends Fragment {
         getActivity().runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                pollBtn.setClickable(condition);
-                pollBtn.setEnabled(condition);
+                mPollBtn.setClickable(condition);
+                mPollBtn.setEnabled(condition);
             }
         });
     }
@@ -222,12 +214,12 @@ public class BleFragment extends Fragment {
 
         ((MainActivity) getActivity()).polling = false;
         boolean[] buttonStates = new boolean[6];
-        buttonStates[0] = notifyBtn.isClickable();
-        buttonStates[1] = notifyBtn.isEnabled();
-        buttonStates[2] = writeBtn.isClickable();
-        buttonStates[3] = writeBtn.isEnabled();
-        buttonStates[4] = pollBtn.isClickable();
-        buttonStates[5] = pollBtn.isEnabled();
+        buttonStates[0] = mNotifyBtn.isClickable();
+        buttonStates[1] = mNotifyBtn.isEnabled();
+        buttonStates[2] = mWriteBtn.isClickable();
+        buttonStates[3] = mWriteBtn.isEnabled();
+        buttonStates[4] = mPollBtn.isClickable();
+        buttonStates[5] = mPollBtn.isEnabled();
         state.putBooleanArray(Integer.toString(R.string.bleButtonStates),buttonStates);
 
         return state;

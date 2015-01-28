@@ -2,7 +2,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#CBA"
+    android:background="@android:color/background_dark"
     tools:context="com.example.brentonchasse.myapplication.BleFragment">
 
     <!-- TODO: Update blank fragment layout -->
@@ -21,8 +21,9 @@
             android:layout_width="fill_parent"
             android:layout_height="wrap_content"
             android:padding="10dp"
-            android:background="#f9f8f6"
-            android:text="@string/ble_fragment" />
+            android:background="@android:color/holo_blue_light"
+            android:text="@string/ble_fragment"
+            android:textColor="@android:color/primary_text_light"/>
     </ScrollView>
 
     <LinearLayout
@@ -36,31 +37,39 @@
         <Button
             android:layout_weight="1"
             android:id="@+id/ble_fragment_connect_btn"
-            android:layout_width="fill_parent"
+            android:layout_width="match_parent"
             android:layout_height="fill_parent"
             android:text="@string/ble_connect_btn"
-            android:onClick="onFragmentClickEvent"/>
+            android:onClick="onFragmentClickEvent"
+            android:textSize="15dp"
+            android:textColor="@android:color/primary_text_dark"/>
         <Button
             android:layout_weight="1"
             android:id="@+id/ble_fragment_notify_btn"
             android:layout_width="fill_parent"
             android:layout_height="fill_parent"
             android:text="@string/ble_notify_btn"
-            android:onClick="onFragmentClickEvent"/>
+            android:onClick="onFragmentClickEvent"
+            android:textSize="14dp"
+            android:textColor="@android:color/primary_text_dark"/>
         <Button
             android:layout_weight="1"
             android:id="@+id/ble_fragment_writeA1_btn"
             android:layout_width="fill_parent"
             android:layout_height="fill_parent"
             android:text="@string/ble_writeA1_btn"
-            android:onClick="onFragmentClickEvent"/>
+            android:onClick="onFragmentClickEvent"
+            android:textSize="14dp"
+            android:textColor="@android:color/primary_text_dark"/>
         <Button
             android:layout_weight="1"
             android:id="@+id/ble_fragment_loopA2_btn"
             android:layout_width="fill_parent"
             android:layout_height="fill_parent"
             android:text="@string/ble_loopA2_btn"
-            android:onClick="onFragmentClickEvent"/>
+            android:onClick="onFragmentClickEvent"
+            android:textSize="15dp"
+            android:textColor="@android:color/primary_text_dark"/>
 
     </LinearLayout>
 

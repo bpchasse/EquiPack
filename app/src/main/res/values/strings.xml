@@ -9,7 +9,7 @@
     <string name="ble_connect_btn">Connect</string>
     <string name="ble_btn">bleButton</string>
     <string name="ble_writeA1_btn">Write</string>
-    <string name="ble_loopA2_btn">Poll Sensors</string>
+    <string name="ble_loopA2_btn">Poll</string>
     <string name="ble_notify_btn">Notify</string>
 
     <string name="ble_title">BLE</string>
@@ -19,6 +19,7 @@
     <string name="weight_title">Content Weight</string>
     <string name="feedback_title">Strap Optimization</string>
     <string name="option_drawer_title">Features</string>
+    <string name="dashboard_graph_title">Stress on back vs. Time</string>
 
     <string name="ble_fragment">BLE Fragment</string>
     <string name="feedback_fragment">Feedback Fragment</string>
@@ -69,5 +70,7 @@
     <string name="bleBundleSetup">bleBundleSetup</string>
     <string name="bleLogCharsSetup">bleLogCharsSetup</string>
     <string name="bleButtonStates">bleButtonStates</string>
+    <string name="new_data_input_hint">y-value</string>
+    <string name="add_data_btn">Add Data Point</string>
 
 </resources>
