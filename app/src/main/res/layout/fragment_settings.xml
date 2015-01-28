@@ -1,0 +1,55 @@
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context="com.example.brentonchasse.myapplication.SettingsFragment">
+
+    <!--Device Name-->
+    <EditTextPreference
+        android:id="@string/settings_device_name_id"
+        android:title="@string/settings_device_name_title"
+        android:summary="@string/settings_device_name_summary"
+        android:key="@string/settings_device_name_key"
+        android:defaultValue="@string/app_name" />
+
+    <!--Service UUID-->
+    <EditTextPreference
+        android:id="@string/settings_UUIDService_id"
+        android:title="@string/settings_UUIDService_title"
+        android:summary="@string/settings_UUIDService_summary"
+        android:key="@string/settings_UUIDService_key"
+        android:defaultValue="@string/settings_UUIDService_default"/>
+    <!--Charactristic Read UUID-->
+    <EditTextPreference
+        android:id="@string/settings_UUIDCharacteristicR_id"
+        android:title="@string/settings_UUIDCharacteristicR_title"
+        android:summary="@string/settings_UUIDCharacteristicR_summary"
+        android:key="@string/settings_UUIDCharacteristicR_key"
+        android:defaultValue="@string/settings_UUIDCharacteristicR_default"/>
+    <!--Charactristic Write UUID-->
+    <EditTextPreference
+        android:id="@string/settings_UUIDCharacteristicW_id"
+        android:title="@string/settings_UUIDCharacteristicW_title"
+        android:summary="@string/settings_UUIDCharacteristicW_summary"
+        android:key="@string/settings_UUIDCharacteristicW_key"
+        android:defaultValue="@string/settings_UUIDCharacteristicW_default"/>
+    <!--Charactristic Write Value-->
+    <EditTextPreference
+        android:id="@string/settings_writeValue_id"
+        android:title="@string/settings_writeValue_title"
+        android:summary="@string/settings_writeValue_summary"
+        android:key="@string/settings_writeValue_key"
+        android:defaultValue="@string/settings_writeValue_default"/>
+
+
+    <!--User's Weight-->
+    <EditTextPreference
+        android:id="@string/settings_weight_id"
+        android:title="@string/settings_weight_title"
+        android:summary="@string/settings_weight_summary"
+        android:key="@string/settings_weight_key"
+        android:defaultValue="125"
+        android:inputType="number"/>
+
+
+</PreferenceScreen>
