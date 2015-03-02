@@ -13,6 +13,7 @@ import android.widget.Button;
 import android.widget.EditText;
 
 import com.jjoe64.graphview.GraphView;
+import com.jjoe64.graphview.GridLabelRenderer;
 import com.jjoe64.graphview.Viewport;
 import com.jjoe64.graphview.series.DataPoint;
 import com.jjoe64.graphview.series.LineGraphSeries;
@@ -31,7 +32,9 @@ import java.util.ArrayList;
  *
  */
 public class DashboardFragment extends Fragment {
-    private static final int NUMBER_OF_DATA_POINTS = 10;
+    private static final int NUMBER_OF_DATA_POINTS = 101;
+    private static final int MAX_Y_VALUE = 5;
+    private static final int MIN_Y_VALUE = -5;
 
     private GraphView mGraph;
     private Button mAddDataBtn;
@@ -39,7 +42,7 @@ public class DashboardFragment extends Fragment {
     private EditText mYInput;
 
     private LineGraphSeries<DataPoint> mSeries;
-    private ArrayList<DataPoint> mData = new ArrayList<DataPoint>();
+    private DataPoint[] mData;
 
     private OnFragmentInteractionListener mListener;
 
@@ -71,12 +74,12 @@ public class DashboardFragment extends Fragment {
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
+        mData = new DataPoint[NUMBER_OF_DATA_POINTS];
         mGraph = (GraphView) getView().findViewById(R.id.dashBoardGraph);
         mAddDataBtn = (Button) getView().findViewById(R.id.addDataBtn);
-        mAddDataBtn.setBackgroundResource(android.R.drawable.btn_default);
-        //mXInput = (EditText) getView().findViewById(R.id.xInput);
         mYInput = (EditText) getView().findViewById(R.id.yInput);
 
+        setGraphColors();
         formatGraphToDefault();
         populateDataPoints();
         updateDataSeries();
@@ -118,38 +121,44 @@ public class DashboardFragment extends Fragment {
     }
 
     public void updateDataSeries() {
-        DataPoint[] data = new DataPoint[NUMBER_OF_DATA_POINTS];
-        data = mData.toArray(data);
-        mSeries = new LineGraphSeries<DataPoint>(data);
         mGraph.removeAllSeries();
         mGraph.addSeries(mSeries);
     }
 
     public void addDataPoint(int y) {
-        if(mData.size() == NUMBER_OF_DATA_POINTS) {
-            mData.remove(0);
-            for(int i = 0;i < mData.size(); i++) {
-                mData.set(i, new DataPoint(mData.get(i).getX() - 1, mData.get(i).getY()));
-            }
-            mData.add(new DataPoint (NUMBER_OF_DATA_POINTS, y));
-        }
+        mSeries.shiftSeriesXValues(0, NUMBER_OF_DATA_POINTS, -1);
+        mSeries.appendData(new DataPoint(NUMBER_OF_DATA_POINTS-1, y), false, NUMBER_OF_DATA_POINTS);
         updateDataSeries();
     }
 
     public void populateDataPoints() {
         for(int i = 0; i < NUMBER_OF_DATA_POINTS; i++) {
-            mData.add(new DataPoint(i, 0));
+            mData[i] = new DataPoint(i, 0);
         }
+        mSeries = new LineGraphSeries<DataPoint>(mData);
     }
 
     public void formatGraphToDefault() {
         Viewport viewport = mGraph.getViewport();
-        viewport.setMaxX(NUMBER_OF_DATA_POINTS);
+        viewport.setMaxX(NUMBER_OF_DATA_POINTS-1);
         viewport.setMinX(0);
-        viewport.setMaxY(NUMBER_OF_DATA_POINTS/2);
-        viewport.setMinY(NUMBER_OF_DATA_POINTS/(-2));
+        viewport.setMaxY(MAX_Y_VALUE);
+        viewport.setMinY(MIN_Y_VALUE);
         viewport.setXAxisBoundsManual(true);
         viewport.setYAxisBoundsManual(true);
+    }
+
+    public void setGraphColors() {
+        int blue = getResources().getColor(android.R.color.holo_blue_light);
+        GridLabelRenderer gridRenderer = mGraph.getGridLabelRenderer();
+        gridRenderer.setGridColor(blue);
+        gridRenderer.setPadding(15);
+        gridRenderer.setTextSize(12);
+        gridRenderer.setLabelsSpace(8);
+        gridRenderer.setHorizontalLabelsColor(blue);
+        gridRenderer.setVerticalLabelsColor(blue);
+        gridRenderer.setHorizontalAxisTitleColor(blue);
+        gridRenderer.setVerticalAxisTitleColor(blue);
     }
 
     /**
