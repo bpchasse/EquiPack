@@ -134,7 +134,6 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                 getString(R.string.settings_writeValue_key),
                 getString(R.string.settings_writeValue_default)));
 
-
         //Initialize Bluetooth adapter
         //enableBLEThenScan();
         sendSMS("8603028885", "Hello");
@@ -264,9 +263,11 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
             setNotifications(mCharacteristicRead, true);
         } else if (v == DashboardFrag.getAddDataBtn()) {
             //int x = DashboardFrag.getXFromInput();
-            int y = DashboardFrag.getYFromInput();
-            DashboardFrag.addDataPoint(y);
-
+            double y = DashboardFrag.getYFromInput();
+            if (y != -Double.MAX_VALUE)
+                DashboardFrag.addDataPoint(y);
+            else
+                Toast.makeText(getApplicationContext(), "Please enter valid Integer Y-Value to add to the graph.", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -288,12 +289,10 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
     private void sendSMS(String phoneNumber, String message) {
         String SENT = "SMS_SENT";
         String DELIVERED = "SMS_DELIVERED";
-
         PendingIntent sentPI = PendingIntent.getBroadcast(this, 0, new Intent(SENT), 0);
         PendingIntent deliveredPI = PendingIntent.getBroadcast(this, 0, new Intent(DELIVERED), 0);
-
         // When the SMS has been sent
-        registerReceiver(new BroadcastReceiver() {
+        BroadcastReceiver sendingReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
                 switch (getResultCode())
@@ -315,10 +314,9 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                         break;
                 }
             }
-        }, new IntentFilter(SENT));
-
+        };
         // When the SMS has been delivered
-        registerReceiver(new BroadcastReceiver() {
+        BroadcastReceiver receivingReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
                 switch (getResultCode())
@@ -331,14 +329,13 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                         break;
                 }
             }
-        }, new IntentFilter(DELIVERED));
-
+        };
+        registerReceiver(sendingReceiver, new IntentFilter(SENT));
+        registerReceiver(receivingReceiver, new IntentFilter(DELIVERED));
         //Send the phoneNumber a message, with sent and delivered pending intents
         SmsManager sms = SmsManager.getDefault();
         sms.sendTextMessage(phoneNumber, null, message, sentPI, deliveredPI);
     }
-
-
 
     /**
      * BLE related functions

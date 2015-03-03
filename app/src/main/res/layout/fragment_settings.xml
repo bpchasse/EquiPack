@@ -42,6 +42,14 @@
         android:key="@string/settings_writeValue_key"
         android:defaultValue="@string/settings_writeValue_default"/>
 
+    <!--Whether or not the dashboard's input text's done button should add the new point on press-->
+    <CheckBoxPreference
+        android:key="@string/settings_inputDone_key"
+        android:title="@string/settings_inputDone_title"
+        android:id="@string/settings_inputDone_id"
+        android:summary="@string/settings_inputDone_summary"
+        android:defaultValue="@string/settings_inputDone_default"/>
+
 
     <!--User's Weight-->
     <EditTextPreference

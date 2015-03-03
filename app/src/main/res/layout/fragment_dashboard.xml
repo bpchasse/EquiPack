@@ -6,11 +6,17 @@
     android:background="@android:color/background_dark">
 
     <!-- TODO: Update blank fragment layout -->
+    <ImageView
+        android:id="@+id/graphRectangle"
+        android:layout_height="0dp"
+        android:layout_width="0dp"
+        android:src="@drawable/rectangle"></ImageView>
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:gravity="center">
+        android:gravity="center"
+        android:weightSum="1">
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -23,9 +29,8 @@
             android:layout_width="match_parent"
             android:layout_height="200dp"
             android:id="@+id/dashBoardGraph"
-            android:layout_marginLeft="10dp"
-            android:layout_marginRight="10dp"
-            android:background="@android:color/black"/>
+            android:background="@android:color/transparent"/>
+
         <LinearLayout
             android:orientation="horizontal"
             android:layout_width="70dp"
@@ -36,7 +41,7 @@
             <EditText
                 android:layout_width="0dp"
                 android:layout_height="fill_parent"
-                android:inputType="numberSigned"
+                android:inputType="numberSigned|numberDecimal"
                 android:ems="10"
                 android:id="@+id/yInput"
                 android:singleLine="true"
@@ -47,7 +52,7 @@
                 android:textColorHint="@android:color/tertiary_text_dark"
                 android:layout_weight="1"
                 android:layout_margin="2dp"
-                android:textColor="@android:color/holo_blue_light"
+                android:textColor="@android:color/white"
                 android:clickable="true"
                 android:background="@android:color/background_dark"
                 android:textAlignment="center"/>
@@ -60,7 +65,7 @@
             android:id="@+id/addDataBtn"
             android:textSize="15sp"
             android:onClick="onFragmentClickEvent"
-            android:textColor="@android:color/holo_blue_light"
+            android:textColor="@android:color/white"
             android:layout_marginTop="15dp"
             android:clickable="true"/>
     </LinearLayout>

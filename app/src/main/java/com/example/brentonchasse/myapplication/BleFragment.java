@@ -39,6 +39,7 @@ public class BleFragment extends Fragment {
     private String mParam2;
     private OnFragmentInteractionListener mListener;
     public TextView mTextView;
+    public boolean mInputDoneMeansAdd;
     private Bundle savedState = null;
 
     private Button mConnectBtn;

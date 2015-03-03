@@ -52,6 +52,12 @@
     <string name="settings_UUIDCharacteristicW_key">prefCharacteristicWUUID</string>
     <string name="settings_UUIDCharacteristicW_default">00002223-0000-1000-8000-00805f9b34fb</string>
 
+    <string name="settings_inputDone_id">inputDoneMeansAddPreference</string>
+    <string name="settings_inputDone_title">Done Means Add Input</string>
+    <string name="settings_inputDone_summary">On the dashboard, should pressing done when entering an input automatically add the point to the graph?</string>
+    <string name="settings_inputDone_key">prefInputDoneMeansAdd</string>
+    <string name="settings_inputDone_default">false</string>
+
     <string name="settings_writeValue_id">UUIDWriteValuePreference</string>
     <string name="settings_writeValue_title">Write value</string>
     <string name="settings_writeValue_summary">The value you would like to write in BLE testing (20 bytes)</string>
@@ -72,5 +78,10 @@
     <string name="bleButtonStates">bleButtonStates</string>
     <string name="new_data_input_hint">y-value</string>
     <string name="add_data_btn">Add Data Point</string>
+
+    <string name="dashboardGraphRestore">dashboardGraphRestore</string>
+    <string name="dashboardGraphSeries">dashboardGraphSeries</string>
+    <string name="dashboardNumberOfRestorableSeries">dashboardGraphRestore</string>
+
 
 </resources>
