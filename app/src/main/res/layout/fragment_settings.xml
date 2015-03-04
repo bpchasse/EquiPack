@@ -42,14 +42,6 @@
         android:key="@string/settings_writeValue_key"
         android:defaultValue="@string/settings_writeValue_default"/>
 
-    <!--Whether or not the dashboard's input text's done button should add the new point on press-->
-    <CheckBoxPreference
-        android:key="@string/settings_inputDone_key"
-        android:title="@string/settings_inputDone_title"
-        android:id="@string/settings_inputDone_id"
-        android:summary="@string/settings_inputDone_summary"
-        android:defaultValue="@string/settings_inputDone_default"/>
-
 
     <!--User's Weight-->
     <EditTextPreference
@@ -59,6 +51,22 @@
         android:key="@string/settings_weight_key"
         android:defaultValue="125"
         android:inputType="number"/>
+
+    <!--Whether or not the dashboard's input text's done button should add the new point on press-->
+    <CheckBoxPreference
+        android:key="@string/settings_inputDone_key"
+        android:title="@string/settings_inputDone_title"
+        android:id="@string/settings_inputDone_id"
+        android:summary="@string/settings_inputDone_summary"
+        android:defaultValue="@string/settings_inputDone_default"/>
+
+    <!--Whether or not the weight fragment's displayed weight should be in kg-->
+    <CheckBoxPreference
+        android:key="@string/settings_weightKg_key"
+        android:title="@string/settings_weightKg_title"
+        android:id="@string/settings_weightKg_id"
+        android:summary="@string/settings_weightKg_summary"
+        android:defaultValue="@string/settings_weightKg_default"/>
 
 
 </PreferenceScreen>

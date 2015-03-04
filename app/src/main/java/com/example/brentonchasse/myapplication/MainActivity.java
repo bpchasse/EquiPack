@@ -37,6 +37,7 @@ import android.support.v4.widget.DrawerLayout;
 import android.os.Handler;
 import android.widget.Toast;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Semaphore;
@@ -89,12 +90,21 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
     public String mPrefUUIDServiceString;
     public String mPrefUUIDCharacteristicReadString;
     public String mPrefUUIDCharacteristicWriteString;
+    public byte[] cTurnOnPower;
+    public byte[] cGetWeightData;
     public byte[] mPrefWriteValue;
     public boolean polling = false;
+    public boolean waitingForPower = false;
     public int mPrefWeight;
 
     private final Semaphore available = new Semaphore(1);
     private final Semaphore logLock = new Semaphore(1);
+
+    private final static int NUMBER_OF_SAMPLES_PER_CYCLE = 10;
+    private double ZERO_WEIGHT = 2;
+    private boolean doCalibrate = false;
+    private String SCANNING_MODE = "";
+    public List<Double> weightDataCycle = new ArrayList<Double>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -106,6 +116,8 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                 getFragmentManager().findFragmentById(R.id.navigation_drawer);
         mFragmentManager = getFragmentManager();
         mTitle = getTitle();
+        cTurnOnPower = hexStringToByteArray("0301000000000000000000000000000000000000");
+        cGetWeightData = hexStringToByteArray("0408000000000000000000000000000000000000");
 
         // Set up the Navigation drawer.
         mNavigationDrawerFragment.setUp(R.id.navigation_drawer, (DrawerLayout) findViewById(R.id.drawer_layout));
@@ -133,6 +145,8 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
         mPrefWriteValue = hexStringToByteArray(myPreferences.getString(
                 getString(R.string.settings_writeValue_key),
                 getString(R.string.settings_writeValue_default)));
+        WeightFrag.setWeightInKg(myPreferences.getBoolean(getString(R.string.settings_weightKg_key),
+                Boolean.parseBoolean(getString(R.string.settings_weightKg_default))));
 
         //Initialize Bluetooth adapter
         //enableBLEThenScan();
@@ -242,6 +256,7 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
             BleFrag.enableNotify(false);
             BleFrag.enableWrite(false);
             BleFrag.enablePoll(false);
+            SCANNING_MODE = "TestBLE";
             enableBLEThenScan();
         } else if (v == BleFrag.getBLEWriteBtn()) {
             logBle("onFragmentClickEvent: Writing value event triggered\n");
@@ -268,6 +283,26 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                 DashboardFrag.addDataPoint(y);
             else
                 Toast.makeText(getApplicationContext(), "Please enter valid Integer Y-Value to add to the graph.", Toast.LENGTH_SHORT).show();
+        } else if (v == WeightFrag.getCalibrateBtn()) {
+            if(!doCalibrate)
+                WeightFrag.getCalibrateBtn().setBackground(getResources().getDrawable(android.R.drawable.button_onoff_indicator_on));
+            else if (doCalibrate)
+                WeightFrag.getCalibrateBtn().setBackground(getResources().getDrawable(android.R.drawable.button_onoff_indicator_off));
+            doCalibrate = !doCalibrate;
+            /**
+             * User requested to calibrate their bag
+             */
+        } else if (v == WeightFrag.getGetWeightBtn()) {
+            doCalibrate = false;
+            WeightFrag.getCalibrateBtn().setBackground(getResources().getDrawable(android.R.drawable.button_onoff_indicator_off));
+            /**
+             * User requested to get the weight of their bag
+             */
+            if(SCANNING_MODE.equals("getWeight"))
+                SCANNING_MODE = "";
+            else
+                SCANNING_MODE = "getWeight";
+            enableBLEThenScan();
         }
     }
 
@@ -457,7 +492,7 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
     /**
      * @return Returns true if property is Readable
      */
-    public boolean isCharacterisitcReadable(BluetoothGattCharacteristic pChar) {
+    public boolean isCharacteristicReadable(BluetoothGattCharacteristic pChar) {
         return ((pChar.getProperties() & BluetoothGattCharacteristic.PROPERTY_READ) != 0);
     }
 
@@ -570,33 +605,49 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                     logBle("onServicesDiscovered(): preferred service verified and received\n");
                     Log.i(TAG, "Status onServiceDiscovered: " + status);
 
-                    //Perform a deeper investigation of the preferred service
+                    //TODO: This if needs to be dynamic
                     if (mService != null) {
-                        logBle("onServicesDiscovered(): Getting \"Read\" and \"Write\" characteristics of service: "
-                                + mPrefUUIDServiceString + "\n"
-                                + "          Read UUID: " + mPrefUUIDCharacteristicReadString + "\n"
-                                + "         Write UUID: " + mPrefUUIDCharacteristicWriteString + "\n");
-                        mCharacteristicRead = mService.getCharacteristic(mPrefUUIDCharacteristicRead);
-                        mCharacteristicWrite = mService.getCharacteristic(mPrefUUIDCharacteristicWrite);
+                        if (SCANNING_MODE.equals("testBLE")) {
+                            //Perform a deeper investigation of the preferred service
+                            logBle("onServicesDiscovered(): Getting \"Read\" and \"Write\" characteristics of service: "
+                                    + mPrefUUIDServiceString + "\n"
+                                    + "          Read UUID: " + mPrefUUIDCharacteristicReadString + "\n"
+                                    + "         Write UUID: " + mPrefUUIDCharacteristicWriteString + "\n");
+                            mCharacteristicRead = mService.getCharacteristic(mPrefUUIDCharacteristicRead);
+                            mCharacteristicWrite = mService.getCharacteristic(mPrefUUIDCharacteristicWrite);
 
-                        checkCharacteristicProperties(mCharacteristicRead, "Read");
-                        checkCharacteristicProperties(mCharacteristicWrite, "Write");
+                            checkCharacteristicProperties(mCharacteristicRead, "Read");
+                            checkCharacteristicProperties(mCharacteristicWrite, "Write");
 
-                        //Read the preferred characteristic of the preferred service
-                        if (mCharacteristicRead != null && isCharacterisitcReadable(mCharacteristicRead)) {
-                            try {
-                                logBle("onServicesDiscovered(): Reading \"Read\" characteristic\n");
-                                mBluetoothGatt.readCharacteristic(mCharacteristicRead);
-                            } catch (Exception e) {
-                                e.printStackTrace();
+                            //Read the preferred characteristic of the preferred service
+                            if (mCharacteristicRead != null && isCharacteristicReadable(mCharacteristicRead)) {
+                                try {
+                                    logBle("onServicesDiscovered(): Reading \"Read\" characteristic\n");
+                                    mBluetoothGatt.readCharacteristic(mCharacteristicRead);
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
                             }
-                        }
-                        if (mCharacteristicWrite != null && isCharacterisitcReadable(mCharacteristicWrite)) {
-                            try {
-                                logBle("onServicesDiscovered(): Reading \"Write\" characteristic\n");
-                                mBluetoothGatt.readCharacteristic(mCharacteristicWrite);
-                            } catch (Exception e) {
-                                e.printStackTrace();
+                            if (mCharacteristicWrite != null && isCharacteristicReadable(mCharacteristicWrite)) {
+                                try {
+                                    logBle("onServicesDiscovered(): Reading \"Write\" characteristic\n");
+                                    mBluetoothGatt.readCharacteristic(mCharacteristicWrite);
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                        } else if (SCANNING_MODE.equals("getWeight")) {
+                            mCharacteristicRead = mService.getCharacteristic(mPrefUUIDCharacteristicRead);
+                            mCharacteristicWrite = mService.getCharacteristic(mPrefUUIDCharacteristicWrite);
+                            //Read the preferred characteristic of the preferred service
+                            boolean readReadable = isCharacteristicReadable(mCharacteristicRead);
+                            boolean writeReadable = isCharacteristicReadable(mCharacteristicWrite);
+                            if (mCharacteristicRead != null && mCharacteristicWrite != null) {
+                                try {
+                                    setNotifications(mCharacteristicRead, true);
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
                             }
                         }
                     } else {
@@ -619,8 +670,8 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                     logBle("onCharacteristicRead(): Successfully read Characteristic:\n                       "
                             + characteristic.getUuid().toString() + "\n" + "                       Value:  0x"
                             + bytesToHex(mCharacteristicValue) + "\n");
-
-                    BleFrag.enableNotify(true);
+                    if (SCANNING_MODE.equals("testBLE"))
+                        BleFrag.enableNotify(true);
                 }
             }
 
@@ -639,7 +690,7 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                     logBle("checkCharacteristicProperties():       Writeable -> false\n");
                     mCharacteristicPermissions[0] = false;
                 }
-                if (isCharacterisitcReadable(characteristic)) {
+                if (isCharacteristicReadable(characteristic)) {
                     logBle("checkCharacteristicProperties():       Readable -> true\n");
                     mCharacteristicPermissions[1] = true;
                 } else {
@@ -660,8 +711,13 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                 logBle("onDescriptorWrite:\n                    Descriptor UUID: " + descriptor.getUuid() +
                         "\n                    Has a new value of: "
                         + bytesToHex(descriptor.getValue()) + "\n");
-                BleFrag.enableWrite(true);
-                BleFrag.enablePoll(true);
+                if (SCANNING_MODE.equals("testBLE")) {
+                    BleFrag.enableWrite(true);
+                    BleFrag.enablePoll(true);
+                } else if (SCANNING_MODE.equals("getWeight")) {
+                    waitingForPower = true;
+                    setCharacteristic(mCharacteristicWrite, cTurnOnPower); //turn on power
+                }
             }
 
             @Override
@@ -673,6 +729,7 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
 
                 double sensor1 = ( (double)( ( ( (int)byteVal[1] & 0xFF ) * 256 ) + ( (int)byteVal[2] & 0xFF ) ) * 3.3f ) / 4096f;
                 double sensor2 = ( (double)( ( ( (int)byteVal[3] & 0xFF ) * 256 ) + ( (int)byteVal[4] & 0xFF ) ) * 3.3f ) / 4096f;
+
 
                 if(hexVal.charAt(0) == 'A') {
                     if (hexVal.charAt(1) == '1') {
@@ -691,6 +748,13 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                             byte[] data = hexStringToByteArray("0200000000000000000000000000000000000000");
                             setCharacteristic(mCharacteristicWrite, data);
                         }
+                    } else if (hexVal.charAt(1) == '3' && waitingForPower) {
+                        waitingForPower = false;
+                        setCharacteristic(mCharacteristicWrite, cGetWeightData);
+                    } else if (hexVal.charAt(1) == '4') {
+                        //TODO: we should have weight sensor data here
+                        if(SCANNING_MODE.equals("getWeight"))
+                            setCharacteristic(mCharacteristicWrite, cGetWeightData);
                     }
                 }
             }
@@ -706,6 +770,24 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
             }
 
         };
+
+        public void handleGettingWeight(double sensorData) {
+            if (weightDataCycle.size() < NUMBER_OF_SAMPLES_PER_CYCLE) {
+                weightDataCycle.add(sensorData);
+            } else if (weightDataCycle.size() == NUMBER_OF_SAMPLES_PER_CYCLE) {
+                double averageRawWeightOverCycle = 0;
+                for (int i = 0; i < NUMBER_OF_SAMPLES_PER_CYCLE; i++)
+                    averageRawWeightOverCycle += weightDataCycle.get(i);
+                averageRawWeightOverCycle = averageRawWeightOverCycle / NUMBER_OF_SAMPLES_PER_CYCLE;
+                if (doCalibrate) {
+                    ZERO_WEIGHT = averageRawWeightOverCycle/(0.000019*1665*2);
+                    WeightFrag.getCalibrateBtn().setBackgroundColor(android.R.drawable.button_onoff_indicator_off);
+                    doCalibrate = false;
+                } else {
+                    WeightFrag.setDisplayedWeight(averageRawWeightOverCycle/(0.00019*1665*2) - ZERO_WEIGHT);
+                }
+            }
+        }
 
         //Necessary for implementing a Service
         @Override

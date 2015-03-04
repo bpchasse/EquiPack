@@ -38,19 +38,19 @@
     <string name="settings_UUIDService_title">Service UUID</string>
     <string name="settings_UUIDService_summary">The unique device name for your personal EquiPack</string>
     <string name="settings_UUIDService_key">prefServiceUUID</string>
-    <string name="settings_UUIDService_default">00001111-0000-1000-8000-00805f9b34fb</string>
+    <string name="settings_UUIDService_default">6e400001-b5a3-f393-e0a9-e50e24dcca9e</string>
 
     <string name="settings_UUIDCharacteristicR_id">UUIDCharacteristicWPreference</string>
     <string name="settings_UUIDCharacteristicR_title">"Read" Characteristic UUID</string>
     <string name="settings_UUIDCharacteristicR_summary">The unique Read characteristic of your EquiPack</string>
     <string name="settings_UUIDCharacteristicR_key">prefCharacteristicRUUID</string>
-    <string name="settings_UUIDCharacteristicR_default">00002222-0000-1000-8000-00805f9b34fb</string>
+    <string name="settings_UUIDCharacteristicR_default">6e400003-b5a3-f393-e0a9-e50e24dcca9e</string>
 
     <string name="settings_UUIDCharacteristicW_id">UUIDCharacteristicWPreference</string>
     <string name="settings_UUIDCharacteristicW_title">"Write" Characteristic UUID</string>
     <string name="settings_UUIDCharacteristicW_summary">The unique Write characteristic of your EquiPack</string>
     <string name="settings_UUIDCharacteristicW_key">prefCharacteristicWUUID</string>
-    <string name="settings_UUIDCharacteristicW_default">00002223-0000-1000-8000-00805f9b34fb</string>
+    <string name="settings_UUIDCharacteristicW_default">6e400002-b5a3-f393-e0a9-e50e24dcca9e</string>
 
     <string name="settings_inputDone_id">inputDoneMeansAddPreference</string>
     <string name="settings_inputDone_title">Done Means Add Input</string>
@@ -70,6 +70,12 @@
     <string name="settings_weight_key">prefWeight</string>
     <string name="settings_weight_default">140</string>
 
+    <string name="settings_weightKg_id">weightInKgPreference</string>
+    <string name="settings_weightKg_title">Weight (kg)</string>
+    <string name="settings_weightKg_summary">Should weights be displayed in KG?</string>
+    <string name="settings_weightKg_key">weightInKg</string>
+    <string name="settings_weightKg_default">false</string>
+
     <string name="UUID_regex">[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}</string>
     <string name="writeValue_regex">[0]{1}-[12]{1}-[a-fA-F0-9]{0,38}</string>
 
@@ -82,6 +88,14 @@
     <string name="dashboardGraphRestore">dashboardGraphRestore</string>
     <string name="dashboardGraphSeries">dashboardGraphSeries</string>
     <string name="dashboardNumberOfRestorableSeries">dashboardGraphRestore</string>
+    <string name="weight_in_kg_switch_text">Change to weight in kg in "settings".</string>
+    <string name="weight_in_lbs_switch_text">Change to weight in lbs in "settings".</string>
+    <string name="get_weight_button_text">Get Pack Weight!</string>
+    <string name="weightInKgStateAll">weightInKgStateAll</string>
+    <string name="weightInKgStateBooleanKey">weightInKgStateBooleanKey</string>
+    <string name="calebrate_btn_text">Calibrate</string>
+    <string name="weightDisplayedKey">weightDisplayedKey</string>
+
 
 
 </resources>

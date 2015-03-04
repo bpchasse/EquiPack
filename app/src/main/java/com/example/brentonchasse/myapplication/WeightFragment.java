@@ -8,7 +8,16 @@ import android.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.RadioButton;
+import android.widget.Switch;
+import android.widget.TextView;
+import android.widget.ToggleButton;
 
+import com.jjoe64.graphview.series.Series;
+
+import java.text.DecimalFormat;
+import java.util.List;
 
 
 /**
@@ -21,12 +30,13 @@ import android.view.ViewGroup;
  *
  */
 public class WeightFragment extends Fragment {
-    // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-    private static final String ARG_PARAM1 = "param1";
-    private static final String ARG_PARAM2 = "param2";
-
-    private String mParam1;
-    private String mParam2;
+    public boolean mWeightInKg;
+    private TextView mWeightInKgSwitch;
+    private TextView mWeightTextView;
+    private Button mCalibrateBtn;
+    private Button mGetWeightBtn;
+    private Bundle savedState;
+    private String mDisplayedWeight;
 
     private OnFragmentInteractionListener mListener;
 
@@ -34,16 +44,10 @@ public class WeightFragment extends Fragment {
      * Use this factory method to create a new instance of
      * this fragment using the provided parameters.
      *
-     * @param param1 Parameter 1.
-     * @param param2 Parameter 2.
      * @return A new instance of fragment WeightFragment.
      */
-    public static WeightFragment newInstance(String param1, String param2) {
+    public static WeightFragment newInstance() {
         WeightFragment fragment = new WeightFragment();
-        Bundle args = new Bundle();
-        args.putString(ARG_PARAM1, param1);
-        args.putString(ARG_PARAM2, param2);
-        fragment.setArguments(args);
         return fragment;
     }
     public WeightFragment() {  }
@@ -53,16 +57,36 @@ public class WeightFragment extends Fragment {
         super.onCreate(savedInstanceState);
         ActionBar actionbar = getActivity().getActionBar();
         if(actionbar != null) actionbar.setTitle(getString(R.string.weight_title));
-        if (getArguments() != null) {
-            mParam1 = getArguments().getString(ARG_PARAM1);
-            mParam2 = getArguments().getString(ARG_PARAM2);
-        }
+    }
+
+    @Override
+    public void onActivityCreated(Bundle savedInstanceState) {
+        super.onActivityCreated(savedInstanceState);
+        mWeightInKgSwitch = (TextView) getView().findViewById(R.id.weightInKgSwitch);
+        mCalibrateBtn = (Button) getView().findViewById(R.id.calibrateBtn);
+        mGetWeightBtn = (Button) getView().findViewById(R.id.getWeightBtn);
+        mWeightTextView = (TextView) getView().findViewById(R.id.weightTextView);
+        setWeightInKg(mWeightInKg);
+        if(mWeightInKg)
+            mWeightInKgSwitch.setText(R.string.weight_in_lbs_switch_text);
+        else
+            mWeightInKgSwitch.setText(R.string.weight_in_kg_switch_text);
+        /*if (mDisplayedWeight != null)
+            mWeightTextView.setText((CharSequence) mDisplayedWeight);*/
     }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        return inflater.inflate(R.layout.fragment_weight, container, false);
+        View v = inflater.inflate(R.layout.fragment_weight, container, false);
+        if(savedInstanceState != null && savedState == null)
+            savedState = savedInstanceState.getBundle(Integer.toString(R.string.weightInKgStateAll));
+        if(savedState != null) {
+            mWeightInKg = savedState.getBoolean(Integer.toString(R.string.weightInKgStateBooleanKey));
+            mDisplayedWeight = savedState.getString(Integer.toString(R.string.weightDisplayedKey));
+        }
+        savedState = null;
+        return v;
     }
 
     public void onButtonPressed(Uri uri) {
@@ -83,11 +107,62 @@ public class WeightFragment extends Fragment {
     }
 
     @Override
+    public void onResume() {
+        super.onResume();
+        if (mDisplayedWeight != null)
+            mWeightTextView.setText((CharSequence) mDisplayedWeight);
+    }
+
+    @Override
     public void onDetach() {
         super.onDetach();
         mListener = null;
     }
 
+    public void setWeightInKg(boolean inKg) {
+        mWeightInKg = inKg;
+        if(mWeightTextView != null) {
+            String[] displayedContent = mWeightTextView.getText().toString().split(" "); //[0] - weight, [1] - units 'lbs'/'kg'
+            setDisplayedWeight(Double.parseDouble(displayedContent[0]));
+        }
+        savedState = saveState();
+    }
+    public boolean getWeightInKg() {
+        return mWeightInKg;
+    }
+    public TextView getWeightInKgSwitch() {
+        return mWeightInKgSwitch;
+    }
+
+    public void setDisplayedWeight(double weightValue) {
+        String weightUnits = mWeightInKg ? "kg" : "lbs";
+        DecimalFormat formatter = new DecimalFormat("#00.00");
+        mWeightTextView.setText((CharSequence)(formatter.format(weightValue) + " " + weightUnits));
+    }
+
+    public Button getCalibrateBtn() { return mCalibrateBtn; }
+    public Button getGetWeightBtn() { return mGetWeightBtn; }
+    public TextView getWeightTextView() { return mWeightTextView; }
+
+    @Override
+    public void onDestroyView () {
+        super.onDestroyView();
+        savedState = saveState(); /* vstup defined here for sure */
+    }
+
+    private Bundle saveState() { /* called either from onDestroyView() or onSaveInstanceState() */
+        Bundle state = new Bundle();
+        state.putBoolean(Integer.toString(R.string.weightInKgStateBooleanKey), mWeightInKg);
+        if(mWeightTextView != null)
+            state.putString(Integer.toString(R.string.weightDisplayedKey), mWeightTextView.getText().toString());
+        return state;
+    }
+
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putBundle(Integer.toString(R.string.weightInKgStateAll), savedState != null ? savedState : saveState());
+    }
     /**
      * This interface must be implemented by activities that contain this
      * fragment to allow an interaction in this fragment to be communicated

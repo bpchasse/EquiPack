@@ -105,6 +105,9 @@ public class SettingsFragment extends PreferenceFragment implements SharedPrefer
               }
           } else if (key.equals(getString(R.string.settings_inputDone_key))) {
               activity.DashboardFrag.setInputMeansDone(sharedPreferences.getBoolean(key,false));
+          } else if (key.equals(getString(R.string.settings_weightKg_key))) {
+              boolean inKg = sharedPreferences.getBoolean(key, false);
+              activity.WeightFrag.setWeightInKg(inKg);
           }
           //Save the changes made to the preferences if they need to be changed.
           onSharedPreferenceChanged(null, "");
@@ -134,6 +137,10 @@ public class SettingsFragment extends PreferenceFragment implements SharedPrefer
           CheckBoxPreference setHelperB = (CheckBoxPreference) findPreference(getString(R.string.settings_inputDone_key));
           setHelperB.setDefaultValue(R.string.settings_inputDone_default);
           sharedPreferences1.edit().putBoolean(getString(R.string.settings_inputDone_key), setHelperB.isChecked()).apply();
+
+          setHelperB = (CheckBoxPreference) findPreference(getString(R.string.settings_weightKg_key));
+          setHelperB.setDefaultValue(R.string.settings_weightKg_default);
+          sharedPreferences1.edit().putBoolean(getString(R.string.settings_weightKg_key), setHelperB.isChecked()).apply();
       }
     }
 
