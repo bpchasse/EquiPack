@@ -137,7 +137,8 @@ public class WeightFragment extends Fragment {
     public void setDisplayedWeight(double weightValue) {
         String weightUnits = mWeightInKg ? "kg" : "lbs";
         DecimalFormat formatter = new DecimalFormat("#00.00");
-        mWeightTextView.setText((CharSequence)(formatter.format(weightValue) + " " + weightUnits));
+        String textValue = formatter.format(weightValue) + " " + weightUnits;
+        mWeightTextView.setText((CharSequence) textValue);
     }
 
     public Button getCalibrateBtn() { return mCalibrateBtn; }

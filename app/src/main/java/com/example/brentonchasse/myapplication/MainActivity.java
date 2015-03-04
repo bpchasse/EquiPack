@@ -99,9 +99,10 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
 
     private final Semaphore available = new Semaphore(1);
     private final Semaphore logLock = new Semaphore(1);
+    private final Semaphore getWeightLock = new Semaphore(1);
 
     private final static int NUMBER_OF_SAMPLES_PER_CYCLE = 10;
-    private double ZERO_WEIGHT = 2;
+    private double ZERO_WEIGHTB = 50.5;
     private boolean doCalibrate = false;
     private String SCANNING_MODE = "";
     public List<Double> weightDataCycle = new ArrayList<Double>();
@@ -279,10 +280,14 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
         } else if (v == DashboardFrag.getAddDataBtn()) {
             //int x = DashboardFrag.getXFromInput();
             double y = DashboardFrag.getYFromInput();
-            if (y != -Double.MAX_VALUE)
+            if (y != -Double.MAX_VALUE && y != 00.00)
                 DashboardFrag.addDataPoint(y);
-            else
+            else if (y == 00.00) {
+                testWeightAnalytics();
+                resetAnalyticsVariables();
+            } else
                 Toast.makeText(getApplicationContext(), "Please enter valid Integer Y-Value to add to the graph.", Toast.LENGTH_SHORT).show();
+
         } else if (v == WeightFrag.getCalibrateBtn()) {
             if(!doCalibrate)
                 WeightFrag.getCalibrateBtn().setBackground(getResources().getDrawable(android.R.drawable.button_onoff_indicator_on));
@@ -293,7 +298,6 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
              * User requested to calibrate their bag
              */
         } else if (v == WeightFrag.getGetWeightBtn()) {
-            doCalibrate = false;
             WeightFrag.getCalibrateBtn().setBackground(getResources().getDrawable(android.R.drawable.button_onoff_indicator_off));
             /**
              * User requested to get the weight of their bag
@@ -727,11 +731,10 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                 byte[] byteVal= characteristic.getValue();
                 String hexVal = bytesToHex(byteVal);
 
-                double sensor1 = ( (double)( ( ( (int)byteVal[1] & 0xFF ) * 256 ) + ( (int)byteVal[2] & 0xFF ) ) * 3.3f ) / 4096f;
-                double sensor2 = ( (double)( ( ( (int)byteVal[3] & 0xFF ) * 256 ) + ( (int)byteVal[4] & 0xFF ) ) * 3.3f ) / 4096f;
-
 
                 if(hexVal.charAt(0) == 'A') {
+                    double sensor1 = ( (double)( ( ( (int)byteVal[1] & 0xFF ) * 256 ) + ( (int)byteVal[2] & 0xFF ) ) * 3.3f ) / 4096f;
+                    double sensor2 = ( (double)( ( ( (int)byteVal[3] & 0xFF ) * 256 ) + ( (int)byteVal[4] & 0xFF ) ) * 3.3f ) / 4096f;
                     if (hexVal.charAt(1) == '1') {
                         logBle("onCharacteristicChanged:\n                   Characteristic UUID: " + characteristic.getUuid()
                                 + "\n                   Return OpCode: 0xA1 == Test"
@@ -753,6 +756,9 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                         setCharacteristic(mCharacteristicWrite, cGetWeightData);
                     } else if (hexVal.charAt(1) == '4') {
                         //TODO: we should have weight sensor data here
+                        double average = ( (double)( ( ( (int)byteVal[1] & 0xFF ) * 256 ) + ( (int)byteVal[2] & 0xFF ) ) * 3.3f ) / 4096f;
+                        double variance = ( (double)( ( ( (int)byteVal[3] & 0xFF ) * 256 ) + ( (int)byteVal[4] & 0xFF ) ) * 3.3f ) / 4096f;
+                        handleGettingWeight(average);
                         if(SCANNING_MODE.equals("getWeight"))
                             setCharacteristic(mCharacteristicWrite, cGetWeightData);
                     }
@@ -772,21 +778,36 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
         };
 
         public void handleGettingWeight(double sensorData) {
-            if (weightDataCycle.size() < NUMBER_OF_SAMPLES_PER_CYCLE) {
-                weightDataCycle.add(sensorData);
-            } else if (weightDataCycle.size() == NUMBER_OF_SAMPLES_PER_CYCLE) {
-                double averageRawWeightOverCycle = 0;
-                for (int i = 0; i < NUMBER_OF_SAMPLES_PER_CYCLE; i++)
-                    averageRawWeightOverCycle += weightDataCycle.get(i);
-                averageRawWeightOverCycle = averageRawWeightOverCycle / NUMBER_OF_SAMPLES_PER_CYCLE;
-                if (doCalibrate) {
-                    ZERO_WEIGHT = averageRawWeightOverCycle/(0.000019*1665*2);
-                    WeightFrag.getCalibrateBtn().setBackgroundColor(android.R.drawable.button_onoff_indicator_off);
-                    doCalibrate = false;
-                } else {
-                    WeightFrag.setDisplayedWeight(averageRawWeightOverCycle/(0.00019*1665*2) - ZERO_WEIGHT);
+            final double data = sensorData;
+            Runnable handler = new Runnable() {
+                @Override
+                public void run() {
+                    if (weightDataCycle.size() < NUMBER_OF_SAMPLES_PER_CYCLE) {
+                        weightDataCycle.add(data);
+                    } else if (weightDataCycle.size() == NUMBER_OF_SAMPLES_PER_CYCLE) {
+                        double averageRawWeightOverCycle = 0;
+                        for (int i = 0; i < NUMBER_OF_SAMPLES_PER_CYCLE; i++)
+                            averageRawWeightOverCycle += weightDataCycle.get(i);
+                        averageRawWeightOverCycle = averageRawWeightOverCycle / NUMBER_OF_SAMPLES_PER_CYCLE;
+                        if (doCalibrate) {
+                            ZERO_WEIGHTB = averageRawWeightOverCycle/(.00019*1665*2);
+                            WeightFrag.getCalibrateBtn().setBackgroundColor(android.R.drawable.button_onoff_indicator_off);
+                            doCalibrate = false;
+                        } else {
+                            weightDataCycle.clear();
+                            WeightFrag.setDisplayedWeight((averageRawWeightOverCycle)/(0.00019*1665*2) - ZERO_WEIGHTB);
+                        }
+                    }
                 }
+            };
+            try {
+                getWeightLock.acquire();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }
+            runOnUiThread(handler);
+            getWeightLock.release();
+
         }
 
         //Necessary for implementing a Service
@@ -795,4 +816,229 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
             return null;
         }
     }
+
+
+    //Public and global statics
+    public static int Cycle_Size = 5;	//in Seconds
+    public static int Cycles = 10;
+    public static int Packet_Size = 10;
+    public static int Sampling_Freq = 60000; //in Hz
+    public static int LDS = 8;
+    public static int LUS = 1;
+    public static int RDS = 2;
+    public static int RUS = 3;
+    public static int LDB = 4;
+    public static int LUB = 5;
+    public static int RDB = 6;
+    public static int RUB = 7;
+    public static int LOAD = 0;
+    public static double a = 50;
+    public static double Zero_Weight = 0.000140;
+    public static double Threshold = 10;
+
+    public double Backl = -1;
+    public double Strapl = -1;
+    public double high = 0;
+    public double stage = 0;
+
+
+    /**
+     * Weight Analytics
+     */
+    public  double[] seperator(int Packet[], double array[][]) {
+        double[] LRArray;
+        LRArray = new double[10];
+        int Buffer_Size = Cycles*Cycle_Size*Sampling_Freq;
+        for (int j = 0; j < Packet_Size; j++) {
+            for (int i = Buffer_Size; i >1; i--) {
+                array[i][j] = array[i-1][j];
+                array[0][j] = Packet[j];
+            }
+            for(int n = 0; n<9; n++)
+                LRArray = Linear_Regression_Slope(n,0, array );
+        }
+        return LRArray;
+    }
+
+    public double[][] Linearizer(double array[][]){
+        double LRArray[][];
+        LRArray = new double[10][2];
+        for(int n = 0; n<9; n++)
+            LRArray[n] = Linear_Regression_Slope(n,0, array );
+        return LRArray;
+    }
+
+    public double[] Linear_Regression_Slope(int Sensor, int Cycle, double array[][])	{
+        double sumy = 0;
+        double avgx = 0;
+        double avgy = 0;
+        double Slope = 0;
+        double Value = 0;
+        double xx = 0;
+        double xy = 0;
+        double yy = 0;
+        for ( int i=Cycle_Size*Sampling_Freq*Cycle; i<Cycle_Size*Sampling_Freq; i++) {
+
+            sumy = array[Sensor][i] + sumy;
+            avgy = sumy / (Cycle_Size * Sampling_Freq);
+            avgx = (Cycle_Size * Sampling_Freq + 1) / 2;
+        }
+        for( int i=Cycle_Size*Sampling_Freq*Cycle; i<Cycle_Size*Sampling_Freq; i++){
+            xx += (i - avgx) * (i - avgx);
+            yy += (array[Sensor][i] - avgy) * (array[Sensor][i] - avgy);
+            xy += (i - avgx) * (array[Sensor][i] - avgx);
+        }
+        Slope=xy/xx;
+
+
+        Value= avgy - Slope*avgx;
+        double[] out;
+        out = new double[2];
+        out[0] = Value;
+        out[1] = Slope;
+        return out;
+    }
+
+    public double Weight_Analytics_LR( double[][] LRArray){
+        double [][] LArray = LRArray.clone();
+        double LUStrap = LArray[LUS][0];
+        double LDStrap = LArray[LDS][0];
+        double RUStrap =LArray[RUS][0];
+        double RDStrap = LArray[RDS][0];
+        //average upper and lower
+        double L = (LUStrap + LDStrap)/2;
+        double R = (RUStrap + RDStrap)/2;
+        if((Math.abs(LArray[LUS][1]+LArray[LUS][1])>0.05)||(Math.abs(LArray[LUS][1]+LArray[LUS][1])>0.05)){
+            return -1*Double.MAX_VALUE;
+        }
+
+        if(Math.abs(R-L) < Threshold){
+            return 0;
+        }
+        else{
+            return (R-L);
+        }
+    }
+
+    public double getWeight(double LRArray[][]){
+        return (LRArray[LOAD][0]-Zero_Weight)/(2*0.000019*1665);
+    }
+
+    public double Weight_Analytics_UD(double[][] LArray, double high, double Backlast, double Straplast){
+        double [][] LRArray = LArray.clone();
+        if (high == -1) {
+
+            double UStrap = (LRArray[LUS][0] + LRArray[RUS][0]) / 2;
+            double DStrap = (LRArray[LDS][0] + LRArray[RDS][0]) / 2;
+            high = 0;
+            if (UStrap > DStrap) {
+                high = 1;
+            }
+
+        }
+        double pullStraps = 0;
+        double Back = (LRArray[LDB][0] + LRArray[RDB][0] + LRArray[RUB][0] + LRArray[LUB][0]) / 4;
+        double Strap = (LRArray[LUS][0] + LRArray[RUS][0] / 2 + LRArray[LDS][0] + LRArray[RDS][0]) / 4;
+        if ((Straplast >= Straplast) && (Back < Backlast) || (Backlast < 0)) {
+            if (high == 1) {
+                pullStraps = -1;
+            } else {
+                pullStraps = 1;
+            }
+            if(((LRArray[LDS][1] + LRArray[RDS][1] + LRArray[RUS][1] + LRArray[LUS][1]) / 4) < -.05){
+                pullStraps = 2;
+            }
+        }
+
+        double[] out;
+        out = new double[4];
+        out[0] = pullStraps;
+        out[1] = Strap;
+        out[2] = Back;
+        out[3] = high;
+        return out[0];
+    }
+
+    public double Weight_Analytics_COM(double[][] LRArray){
+        return 0.5*0.5*0.5/(2*(LRArray[LOAD][0]-Zero_Weight)/(2*0.000019*1665)*0.453592*9.81*((LRArray[LDB][0] + LRArray[RDB][0] + LRArray[RUB][0] + LRArray[LUB][0]) / 4) + a);
+    }
+
+    public double Weight_Analytics(double[][] LRArray2) {
+        double out = 0;
+        switch ((int) (Math.round(stage))) {
+            case 0:
+                out = Weight_Analytics_LR(LRArray2);
+                if (out == 0) {
+                    //even symmetry, send message
+                    Toast.makeText(this, "Straps are symmetric.", Toast.LENGTH_LONG).show();
+                    out = 0;
+                    stage = 1;
+                }
+                if (out == -1 * Double.MAX_VALUE) {
+                    //do nothing, repeat data collection
+                } else {
+                    // add out to graph, run WeightAnalytics again
+                    DashboardFrag.addDataPoint(out);
+                }
+                break;
+            case 1:
+                out = Weight_Analytics_UD(LRArray2, high, Backl, Strapl);
+                if ((out == 0) || (out == 2)) {
+                    //correct height
+                    //send message to stop adjusting
+                    Toast.makeText(this, "Pack raised to correct height.", Toast.LENGTH_SHORT).show();
+                    stage = 2;
+                }
+                break;
+            case 2:
+                out = Weight_Analytics_COM(LRArray2);
+                if (out < .10) {
+                    //send message to move center of mass forward
+                    Toast.makeText(this, "Move pack contents closer to the spine of your Equipack.", Toast.LENGTH_SHORT).show();
+                }
+                break;
+        }
+        return out;
+    }
+
+    /**
+     * colin's tester function
+     */
+    public void testWeightAnalytics(){
+        double[][][] TestInput = new double[][][]{
+                {{2, 0},{0.5,0}, {0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0}},
+                {{2, 0},{0.5,0}, {0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0}},
+                {{2, 0},{0.5,0}, {0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0}},
+                {{2, 0},{0.5,0}, {0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0}},
+                {{2, 0},{0.5,0}, {0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0}},
+                {{2, 0},{0.5,0}, {0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0}},
+                {{2, 0},{0.5,0}, {0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0}},
+                {{2, 0},{0.5,0}, {0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0}},
+                {{2, 0},{0.5,0}, {0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0}},
+                {{2, 0},{0.5,0}, {0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0}},
+                {{2, 0},{0.5,0}, {0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0}},
+                {{2, 0},{0.5,0}, {0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0}},
+                {{2, 0},{0.5,0}, {0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0}},
+                {{2, 0},{0.5,0}, {0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0}},
+                {{2, 0},{0.5,0}, {0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0}},
+                {{2, 0},{0.5,0}, {0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0}},
+                {{2, 0},{0.5,0}, {0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0}},
+                {{2, 0},{0.5,0}, {0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0}},
+                {{2, 0},{0.5,0}, {0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0}},
+                {{2, 0},{0.5,0}, {0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0},{0.5,0}},
+        };
+        int out = 0;
+        for(int i = 0; i < 9; i++){
+            Weight_Analytics(TestInput[0]);
+        }
+
+    }
+
+    public void resetAnalyticsVariables() {
+        Backl = -1;
+        Strapl = -1;
+        high = 0;
+        stage = 0;
+    }
+
 }
