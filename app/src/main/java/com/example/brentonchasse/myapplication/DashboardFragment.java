@@ -13,6 +13,10 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.jjoe64.graphview.GraphView;
@@ -25,6 +29,7 @@ import com.jjoe64.graphview.series.Series;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Semaphore;
 
 
 /**
@@ -37,19 +42,27 @@ import java.util.List;
  *
  */
 public class DashboardFragment extends Fragment {
-    private static final int NUMBER_OF_DATA_POINTS = 101;
-    private static final int MAX_Y_VALUE = 5;
-    private static final int MIN_Y_VALUE = -5;
+    private static final int NUMBER_OF_DATA_POINTS = 11;
+    private static final double MAX_Y_VALUE = .2;
+    private static final double MIN_Y_VALUE = -.2;
 
     private Bundle savedState;
     private GraphView mGraph;
     private Button mAddDataBtn;
     private EditText mYInput;
+    private FrameLayout mArrowBox;
+    private ImageView mLUp;
+    private ImageView mRUp;
+    private ImageView mLDown;
+    private ImageView mRDown;
     private boolean mInputDoneMeansAdd;
 
     private LineGraphSeries<DataPoint> mSeries;
     private List<double[]> mRestoredSeriesData = new ArrayList<double[]>();
     private DataPoint[] mData;
+
+    private Semaphore messageLock;
+    private Semaphore graphLock;
 
     private OnFragmentInteractionListener mListener;
 
@@ -112,6 +125,17 @@ public class DashboardFragment extends Fragment {
                 return false;
             }
         });
+        mRUp = (ImageView) getView().findViewById(R.id.rightUpArrow);
+        mLUp = (ImageView) getView().findViewById(R.id.leftUpArrow);
+        mRDown = (ImageView) getView().findViewById(R.id.rightDownArrow);
+        mLDown = (ImageView) getView().findViewById(R.id.leftDownArrow);
+        mArrowBox = (FrameLayout) getView().findViewById(R.id.arrowLayout);
+        mRUp.setVisibility(View.GONE);
+        mLUp.setVisibility(View.GONE);
+        mRDown.setVisibility(View.GONE);
+        mLDown.setVisibility(View.GONE);
+        mArrowBox.setVisibility(View.GONE);
+
 
         formatGraph();
         formatViewPort();
@@ -168,6 +192,18 @@ public class DashboardFragment extends Fragment {
 
     public void setInputMeansDone(boolean meansDone) { mInputDoneMeansAdd = meansDone; }
 
+    public void setMessageText(String messageTxt) {
+        final String txt = messageTxt;
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                TextView messageView = (TextView) getView().findViewById(R.id.dashboardMessage);
+                messageView.setText(txt);
+                messageView.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
+            }
+        });
+    }
+
     public Button getAddDataBtn() {
         return mAddDataBtn;
     }
@@ -182,14 +218,80 @@ public class DashboardFragment extends Fragment {
         }
     }
 
+    public void setGraphVisibility(int visibility) {
+        final int viz = (visibility == View.GONE) ? View.GONE : (visibility == View.VISIBLE) ? View.VISIBLE : View.INVISIBLE;
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mGraph.setVisibility(viz);
+            }
+        });
+    }
+
+    public void setArrowLayoutVisibility(final int visibility) {
+        final int viz = (visibility == View.GONE) ? View.GONE : (visibility == View.VISIBLE) ? View.VISIBLE : View.INVISIBLE;
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+               mArrowBox.setVisibility(viz);
+            }
+        });
+    }
+
+    public void setRightUpArrowVisibility(final int visibility) {
+        final int viz = (visibility == View.GONE) ? View.GONE : (visibility == View.VISIBLE) ? View.VISIBLE : View.INVISIBLE;
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mRUp.setVisibility(viz);
+            }
+        });
+    }
+    public void setRightDownArrowVisibility(final int visibility) {
+        final int viz = (visibility == View.GONE) ? View.GONE : (visibility == View.VISIBLE) ? View.VISIBLE : View.INVISIBLE;
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mRDown.setVisibility(viz);
+            }
+        });
+    }
+    public void setLeftUpArrowVisibility(final int visibility) {
+        final int viz = (visibility == View.GONE) ? View.GONE : (visibility == View.VISIBLE) ? View.VISIBLE : View.INVISIBLE;
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mLUp.setVisibility(viz);
+            }
+        });
+    }
+    public void setLeftDownArrowVisibility(final int visibility) {
+        final int viz = (visibility == View.GONE) ? View.GONE : (visibility == View.VISIBLE) ? View.VISIBLE : View.INVISIBLE;
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mLDown.setVisibility(viz);
+            }
+        });
+    }
+
+
     public void updateDataSeries() {
         mGraph.removeAllSeries();
         mGraph.addSeries(mSeries);
     }
 
     public void addDataPoint(double y) {
-        mSeries.shiftSeriesXValues(0, NUMBER_OF_DATA_POINTS, -1);
-        mSeries.appendData(new DataPoint(NUMBER_OF_DATA_POINTS - 1, y), false, NUMBER_OF_DATA_POINTS);
+        final double ty = y;
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mSeries.shiftSeriesXValues(0, NUMBER_OF_DATA_POINTS, -1);
+                mSeries.appendData(new DataPoint(NUMBER_OF_DATA_POINTS - 1, ty), false, NUMBER_OF_DATA_POINTS);
+            }
+        });
+        //mSeries.shiftSeriesXValues(0, NUMBER_OF_DATA_POINTS, -1);
+        //mSeries.appendData(new DataPoint(NUMBER_OF_DATA_POINTS - 1, y), false, NUMBER_OF_DATA_POINTS);
     }
 
     public void populateDataPoints() {
@@ -201,7 +303,7 @@ public class DashboardFragment extends Fragment {
 
     public void formatViewPort() {
         Viewport viewport = mGraph.getViewport();
-        viewport.setMaxX(NUMBER_OF_DATA_POINTS-1);
+        viewport.setMaxX(NUMBER_OF_DATA_POINTS - 1);
         viewport.setMinX(0);
         viewport.setMaxY(MAX_Y_VALUE);
         viewport.setMinY(MIN_Y_VALUE);

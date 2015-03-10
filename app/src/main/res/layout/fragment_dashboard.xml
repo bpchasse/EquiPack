@@ -11,25 +11,82 @@
         android:layout_height="0dp"
         android:layout_width="0dp"
         android:src="@drawable/rectangle"></ImageView>
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:gravity="center"
-        android:weightSum="1">
+        android:weightSum="1"
+        android:gravity="center_horizontal">
         <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="fill_parent"
+            android:layout_height="130dp"
+            android:id="@+id/dashboardMessage"
             android:text="@string/dashboard_graph_title"
-            android:layout_gravity="center_horizontal"
             android:textColor="@android:color/holo_blue_light"
             android:textSize="30sp"
+            android:textAlignment="center"
             />
         <com.jjoe64.graphview.GraphView
             android:layout_width="match_parent"
             android:layout_height="200dp"
             android:id="@+id/dashBoardGraph"
             android:background="@android:color/transparent"/>
+
+        <FrameLayout
+            android:orientation="horizontal"
+            android:layout_width="fill_parent"
+            android:layout_height="200dp"
+            android:gravity="center"
+            android:id="@+id/arrowLayout">
+
+            <LinearLayout
+                android:orientation="horizontal"
+                android:layout_width="fill_parent"
+                android:layout_height="fill_parent"
+                android:visibility="visible">
+
+                <ImageView
+                    android:id="@+id/leftUpArrow"
+                    android:layout_height="match_parent"
+                    android:layout_width="match_parent"
+                    android:rotation="-90"
+                    android:background="@drawable/blue_arrow"
+                    android:layout_weight="1"/>
+
+                <ImageView
+                    android:id="@+id/rightUpArrow"
+                    android:layout_height="match_parent"
+                    android:layout_width="match_parent"
+                    android:rotation="-90"
+                    android:background="@drawable/blue_arrow"
+                    android:layout_weight="1"/>
+            </LinearLayout>
+
+            <LinearLayout
+                android:orientation="horizontal"
+                android:layout_width="fill_parent"
+                android:layout_height="fill_parent"
+                android:visibility="visible">
+
+                <ImageView
+                    android:id="@+id/leftDownArrow"
+                    android:layout_height="match_parent"
+                    android:layout_width="match_parent"
+                    android:rotation="90"
+                    android:background="@drawable/blue_arrow"
+                    android:layout_weight="1"/>
+
+                <ImageView
+                    android:id="@+id/rightDownArrow"
+                    android:layout_height="match_parent"
+                    android:layout_width="match_parent"
+                    android:rotation="90"
+                    android:background="@drawable/blue_arrow"
+                    android:layout_weight="1"/>
+            </LinearLayout>
+
+        </FrameLayout>
 
         <LinearLayout
             android:orientation="horizontal"
