@@ -136,6 +136,7 @@ public class WeightFragment extends Fragment {
 
     public void setDisplayedWeight(double weightValue) {
         String weightUnits = mWeightInKg ? "kg" : "lbs";
+        //TODO: convert weightvalue to kg from lbs when necessary
         DecimalFormat formatter = new DecimalFormat("#00.00");
         String textValue = formatter.format(weightValue) + " " + weightUnits;
         mWeightTextView.setText((CharSequence) textValue);
@@ -143,6 +144,22 @@ public class WeightFragment extends Fragment {
 
     public Button getCalibrateBtn() { return mCalibrateBtn; }
     public Button getGetWeightBtn() { return mGetWeightBtn; }
+    public void setGetWeightBtnTxt(final String txt) {
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mGetWeightBtn.setText(txt);
+            }
+        });
+    }
+    public void enableGetWeightBtn(final boolean b) {
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mGetWeightBtn.setEnabled(b);
+            }
+        });
+    }
     public TextView getWeightTextView() { return mWeightTextView; }
 
     @Override

@@ -40,7 +40,7 @@
     <string name="settings_UUIDService_key">prefServiceUUID</string>
     <string name="settings_UUIDService_default">6e400001-b5a3-f393-e0a9-e50e24dcca9e</string>
 
-    <string name="settings_UUIDCharacteristicR_id">UUIDCharacteristicWPreference</string>
+    <string name="settings_UUIDCharacteristicR_id">UUIDCharacteristicRPreference</string>
     <string name="settings_UUIDCharacteristicR_title">"Read" Characteristic UUID</string>
     <string name="settings_UUIDCharacteristicR_summary">The unique Read characteristic of your EquiPack</string>
     <string name="settings_UUIDCharacteristicR_key">prefCharacteristicRUUID</string>

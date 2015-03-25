@@ -1,32 +1,31 @@
 package com.example.brentonchasse.myapplication;
-
 import android.app.Activity;
 
 import android.app.ActionBar;
 import android.app.Fragment;
 import android.app.FragmentManager;
 import android.app.PendingIntent;
-import android.app.Service;
 import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
-import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
-import android.bluetooth.BluetoothProfile;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.graphics.PorterDuff;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.os.Message;
+import android.os.Messenger;
+import android.os.RemoteException;
 import android.telephony.SmsManager;
-import android.util.Log;
 import android.view.Menu;
 import android.view.View;
 import android.net.Uri;
@@ -39,12 +38,10 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
-import java.util.concurrent.FutureTask;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
-
 
 public class MainActivity extends Activity implements NavigationDrawerFragment.NavigationDrawerCallbacks,
                                                       BleFragment.OnFragmentInteractionListener,
@@ -52,9 +49,12 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                                                       FeedbackFragment.OnFragmentInteractionListener,
                                                       DashboardFragment.OnFragmentInteractionListener,
                                                       SettingsFragment.OnFragmentInteractionListener {
+    BleService mBle = null;
+    boolean mBleBound = false;
+    Messenger mBleMessenger = null;
+    boolean mConnected = false;
     // Fragment managing the behaviors, interactions and presentation of the navigation drawer.
-    private NavigationDrawerFragment mNavigationDrawerFragment;
-
+    NavigationDrawerFragment mNavigationDrawerFragment;
     BleFragment BleFrag = new BleFragment();
     WeightFragment WeightFrag = new WeightFragment();
     FeedbackFragment FeedbackFrag = new FeedbackFragment();
@@ -70,13 +70,11 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
 
     private BluetoothAdapter mBluetoothAdapter;
     private BluetoothGatt mBluetoothGatt;
+    private BluetoothGattService mService;
     private Handler mHandler;
     private FragmentManager mFragmentManager;
 
-    private BluetoothLeService mBluetoothLeService;
-    private BluetoothGattService mService;
 
-    private List<BluetoothGattCharacteristic> mCharacteristicList;
     private BluetoothGattCharacteristic mCharacteristicRead;
     private BluetoothGattCharacteristic mCharacteristicWrite;
     private byte[] mCharacteristicValue;
@@ -84,7 +82,6 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
 
     private boolean mScanning;
 
-    private int mConnectionState = 0;
     private static final int REQUEST_ENABLE_BT = 1;
     private static final long SCAN_PERIOD = 10000;
 
@@ -105,7 +102,7 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
     private final Semaphore available = new Semaphore(1);
     private final Semaphore logLock = new Semaphore(1);
     private final Semaphore getWeightLock = new Semaphore(1);
-    private final Semaphore analyzeWeightLock = new Semaphore(1);
+    private final Semaphore handlerLock = new Semaphore(1);
 
     private final static int NUMBER_OF_SAMPLES_PER_CYCLE = 10;
     private double ZERO_WEIGHTB = 50.5;
@@ -118,7 +115,6 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_options);
         mHandler = new Handler();
-        mBluetoothLeService = new BluetoothLeService();
         mNavigationDrawerFragment = (NavigationDrawerFragment)
                 getFragmentManager().findFragmentById(R.id.navigation_drawer);
         mFragmentManager = getFragmentManager();
@@ -161,15 +157,296 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
     }
 
     @Override
+    protected void onStart() {
+        super.onStart();
+        // Bind to LocalService within BleService
+        doBindService();
+    }
+
+    void doBindService() {
+        Intent intent = new Intent(this, BleService.class);
+        bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
+    }
+    void doUnbindService() {
+        if (mBleBound) {
+            // If we have received the service, and hence registered with
+            // it, then now is the time to unregister.
+            if (mBleMessenger != null) {
+                try {
+                    Message msg = Message.obtain(null,
+                            BleService.MSG_UNREGISTER_CLIENT);
+                    msg.replyTo = mMessenger;
+                    mBleMessenger.send(msg);
+                } catch (RemoteException e) {
+                    // There is nothing special we need to do if the service
+                    // has crashed.
+                }
+            }
+            // Detach our existing connection.
+            unbindService(mConnection);
+            mBleBound = false;
+        }
+    }
+
+    @Override
     protected void onStop() {
         super.onStop();
-
+        doUnbindService();
         //Store the preferences in case they may have changes
         SharedPreferences myPreferences = getPreferences(MODE_PRIVATE);
         SharedPreferences.Editor editor = myPreferences.edit();
         editor.putString(getString(R.string.settings_device_name_key), mDeviceName);
         editor.apply();
     }
+
+    private Runnable makeRunner(final Callable<Void> func) {
+        return new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    func.call();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        };
+    }
+
+    /**
+     * Handler of incoming messages from service.
+     */
+    class IncomingHandler extends Handler {
+        @Override
+        public void handleMessage(final Message msg) {
+            final Message message = msg;
+            final int what = msg.what;
+            final Object obj = msg.obj;
+            //Handle the message on a different thread (not the UI thread)
+            //  Trust that any UI changes determined by the handler will be explicitly run on the UI thread
+            myThread t = new myThread(what, obj);
+            ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+            scheduler.execute(t);
+        }
+    }
+
+    final class myThread implements Runnable{
+        private int w;
+        private Object o;
+
+        public myThread(int what, Object obj) {
+            this.w = what;
+            this.o = obj;
+        }
+
+        @Override
+        public void run() {
+            try {
+                handlerLock.acquire();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            switch (this.w) {
+                case BleService.MSG_CONNECTED:
+                    connectedHandler(this.o);
+                    break;
+                case BleService.MSG_SERVICES_DISCOVERED:
+                    discoveredServiceHandler(this.o);
+                    break;
+                case BleService.MSG_CHARACTERISTIC_READ:
+                    characteristicReadHandler(this.o);
+                    break;
+                case BleService.MSG_DESCRIPTOR_READ:
+                    descriptorReadHandler(this.o);
+                    break;
+                case BleService.MSG_CHARACTERISTIC_CHANGED:
+                    updateHandler(this.o);
+                    break;
+                case BleService.MSG_DISCONNECTED:
+                    disconnectedHandler(this.o);
+                    break;
+            }
+            handlerLock.release();
+        }
+    }
+
+    private void connectedHandler(Object obj) {
+        mConnected = true;
+        if(mBleMessenger != null) {
+            mBluetoothGatt = (BluetoothGatt) obj;
+            try {
+                mBleMessenger.send(Message.obtain(null, BleService.MSG_SET_SERVICE_UUID, mPrefUUIDService));
+                mBluetoothGatt.discoverServices();
+                //Set button back to "Discovering" text
+                WeightFrag.setGetWeightBtnTxt("Discovering...");
+            } catch (RemoteException e) {
+                mBleMessenger = null;
+            }
+        }
+    }
+    private void discoveredServiceHandler(Object obj) {
+        mService = (BluetoothGattService) obj;
+        if (SCANNING_MODE.equals("testBLE")) {
+            //Perform a deeper investigation of the preferred service
+            logBle("onServicesDiscovered(): Getting \"Read\" and \"Write\" characteristics of service: " + mPrefUUIDServiceString + "\n"
+                    + "          Read UUID: " + mPrefUUIDCharacteristicReadString + "\n" + "         Write UUID: " + mPrefUUIDCharacteristicWriteString + "\n");
+            mCharacteristicRead = mService.getCharacteristic(mPrefUUIDCharacteristicRead);
+            mCharacteristicWrite = mService.getCharacteristic(mPrefUUIDCharacteristicWrite);
+
+            checkCharacteristicProperties(mCharacteristicRead, "Read");
+            checkCharacteristicProperties(mCharacteristicWrite, "Write");
+
+            //Read the preferred characteristic of the preferred service
+            if (mCharacteristicRead != null && isCharacteristicReadable(mCharacteristicRead)) {
+                try {
+                    logBle("onServicesDiscovered(): Reading \"Read\" characteristic\n");
+                    mBluetoothGatt.readCharacteristic(mCharacteristicRead);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            if (mCharacteristicWrite != null && isCharacteristicReadable(mCharacteristicWrite)) {
+                try {
+                    logBle("onServicesDiscovered(): Reading \"Write\" characteristic\n");
+                    mBluetoothGatt.readCharacteristic(mCharacteristicWrite);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        } else if (SCANNING_MODE.equals("getWeight")) {
+            mCharacteristicRead = mService.getCharacteristic(mPrefUUIDCharacteristicRead);
+            mCharacteristicWrite = mService.getCharacteristic(mPrefUUIDCharacteristicWrite);
+            boolean isNotifiable = isCharacterisiticNotifiable(mCharacteristicRead);
+            boolean isWritable = isCharacteristicWriteable(mCharacteristicWrite);
+            //Read the preferred characteristic of the preferred service
+            if (mCharacteristicRead != null && mCharacteristicWrite != null) {
+                try {
+                    setNotifications(mCharacteristicRead, true);
+                    //Set button back to "Setting up" text
+                    WeightFrag.setGetWeightBtnTxt("Setting up...");
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+    private void characteristicReadHandler(Object obj) {
+        BluetoothGattCharacteristic chara = (BluetoothGattCharacteristic) obj;
+        mCharacteristicValue = chara.getValue();
+        logBle("onCharacteristicRead(): Successfully read Characteristic:\n                       "
+                + chara.getUuid().toString() + "\n" + "                       Value:  0x"
+                + bytesToHex(mCharacteristicValue) + "\n");
+        if (SCANNING_MODE.equals("testBLE"))
+            BleFrag.enableNotify(true);
+    }
+    private void descriptorReadHandler(Object obj) {
+        BluetoothGattDescriptor descriptor = (BluetoothGattDescriptor) obj;
+        logBle("onDescriptorWrite:\n                    Descriptor UUID: " + descriptor.getUuid() +
+                "\n                    Has a new value of: "
+                + bytesToHex(descriptor.getValue()) + "\n");
+        if (SCANNING_MODE.equals("testBLE")) {
+            BleFrag.enableWrite(true);
+            BleFrag.enablePoll(true);
+        } else if (SCANNING_MODE.equals("getWeight")) {
+            waitingForPower = true;
+            setCharacteristic(mCharacteristicWrite, cTurnOnPower); //turn on power
+            //Set button back to "Powering" text
+            WeightFrag.setGetWeightBtnTxt("Powering up...");
+        }
+    }
+    private void updateHandler(Object obj){
+        BluetoothGattCharacteristic characteristic = (BluetoothGattCharacteristic) obj;
+        String stringVal = new String(characteristic.getValue());
+        byte[] byteVal= characteristic.getValue();
+        String hexVal = bytesToHex(byteVal);
+
+        if(hexVal.charAt(0) == 'A') {
+            double sensor1 = ( (double)( ( ( (int)byteVal[1] & 0xFF ) * 256 ) + ( (int)byteVal[2] & 0xFF ) ) * 3.3f ) / 4096f;
+            double sensor2 = ( (double)( ( ( (int)byteVal[3] & 0xFF ) * 256 ) + ( (int)byteVal[4] & 0xFF ) ) * 3.3f ) / 4096f;
+
+            if (hexVal.charAt(1) == '1') {
+                logBle("onCharacteristicChanged:\n                   Characteristic UUID: " + characteristic.getUuid()
+                        + "\n                   Return OpCode: 0xA1 == Test"
+                        + "\n                   Return Data: "
+                        + hexVal.substring(2, hexVal.length()) + "\n");
+            } else if (hexVal.charAt(1) == '2') {
+                logSet("onCharacteristicChanged:\n                   Characteristic UUID: " + characteristic.getUuid()
+                        + "\n                   Return OpCode: 0xA2 == Read ADCs"
+                        + "\n                   Return Data:"
+                        + "\n                           Sensor 1: " + sensor1 + "V"
+                        + "\n                           Sensor 2: " + sensor2 + "V\n");
+                if(polling) {
+                    byte[] data = hexStringToByteArray("0200000000000000000000000000000000000000");
+                    setCharacteristic(mCharacteristicWrite, data);
+                }
+            } else if (hexVal.charAt(1) == '3' && waitingForPower) {
+                waitingForPower = false;
+                setCharacteristic(mCharacteristicWrite, cGetWeightData);
+            } else if (hexVal.charAt(1) == '4') {
+                double average = ( (double)( ( ( (int)byteVal[1] & 0xFF ) * 256 ) + ( (int)byteVal[2] & 0xFF ) ) * 3.3f ) / 4096f;
+                double variance = ( (double)( ( ( (int)byteVal[3] & 0xFF ) * 256 ) + ( (int)byteVal[4] & 0xFF ) ) * 3.3f ) / 4096f;
+
+                handleGettingWeight(average);
+
+                //TODO: This is where we need to stop the data requesting iterations
+                if(SCANNING_MODE.equals("getWeight")) {
+                    setCharacteristic(mCharacteristicWrite, cGetWeightData);
+                    //Set button back to "Running!" text
+                    WeightFrag.setGetWeightBtnTxt("Running!");
+                } else {
+                    WeightFrag.enableGetWeightBtn(true);
+                    //Set button back to default text
+                    WeightFrag.setGetWeightBtnTxt(getString(R.string.get_weight_button_text));
+                }
+            }
+        }
+    }
+    private void disconnectedHandler(Object obj) {
+        mConnected = false;
+        //TODO: what do I do when i'm disconnected
+        if (SCANNING_MODE.equals("getWeight") || WeightFrag.getGetWeightBtn() != null){
+            SCANNING_MODE = "";
+            WeightFrag.enableGetWeightBtn(true);
+            //Set button back to default text
+            WeightFrag.setGetWeightBtnTxt(getString(R.string.get_weight_button_text));
+        }
+        //doUnbindService();
+    }
+    /**
+     * Target we publish for clients to send messages to IncomingHandler.
+     */
+    final Messenger mMessenger = new Messenger(new IncomingHandler());
+
+
+
+    /** Defines callbacks for service binding, passed to bindService() */
+    private ServiceConnection mConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName className,
+                                       IBinder service) {
+            // We've bound to LocalService, cast the IBinder and get LocalService instance
+            BleService.LocalBinder binder = (BleService.LocalBinder) service;
+            mBle = binder.getService();
+            mBleMessenger = new BleService().mMessenger;
+            Message msg = Message.obtain(null,
+                    BleService.MSG_REGISTER_CLIENT);
+            msg.replyTo = mMessenger;
+            try {
+                mBleMessenger.send(msg);
+                //TODO:Send first command to service here
+            } catch (RemoteException e) {
+                // In this case the service has crashed before we could even
+                // do anything with it; we can count on soon being
+                // disconnected (and then reconnected if it can be restarted)
+                // so there is no need to do anything here.
+            }
+            mBleBound = true;
+        }
+        @Override
+        public void onServiceDisconnected(ComponentName arg0) {
+            mBleMessenger = null;
+            mBleBound = false;
+        }
+    };
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -182,7 +459,6 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
     }
 
     @Override
-    //TODO: use arrays to store the fragment and tag locations
     public void onNavigationDrawerItemSelected(int position) {
         switch (position) {
             case (0): //EquiPack Dashboard
@@ -256,6 +532,62 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
         return super.onCreateOptionsMenu(menu);
     }
 
+    /**
+     * SMS sending related functions
+     */
+    private void sendSMS(String phoneNumber, String message) {
+        String SENT = "SMS_SENT";
+        String DELIVERED = "SMS_DELIVERED";
+        PendingIntent sentPI = PendingIntent.getBroadcast(this, 0, new Intent(SENT), 0);
+        PendingIntent deliveredPI = PendingIntent.getBroadcast(this, 0, new Intent(DELIVERED), 0);
+        // When the SMS has been sent
+        BroadcastReceiver sendingReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+
+                switch (getResultCode())
+                {
+                    case Activity.RESULT_OK:
+                        Toast.makeText(getBaseContext(), "SMS sent", Toast.LENGTH_SHORT).show();
+                        break;
+                    case SmsManager.RESULT_ERROR_GENERIC_FAILURE:
+                        Toast.makeText(getBaseContext(), "Generic failure", Toast.LENGTH_SHORT).show();
+                        break;
+                    case SmsManager.RESULT_ERROR_NO_SERVICE:
+                        Toast.makeText(getBaseContext(), "No service", Toast.LENGTH_SHORT).show();
+                        break;
+                    case SmsManager.RESULT_ERROR_NULL_PDU:
+                        Toast.makeText(getBaseContext(), "Null PDU", Toast.LENGTH_SHORT).show();
+                        break;
+                    case SmsManager.RESULT_ERROR_RADIO_OFF:
+                        Toast.makeText(getBaseContext(), "Radio off", Toast.LENGTH_SHORT).show();
+                        break;
+                }
+            }
+        };
+        // When the SMS has been delivered
+        BroadcastReceiver receivingReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                switch (getResultCode())
+                {
+                    case Activity.RESULT_OK:
+                        Toast.makeText(getBaseContext(), "SMS delivered", Toast.LENGTH_SHORT).show();
+                        break;
+                    case Activity.RESULT_CANCELED:
+                        Toast.makeText(getBaseContext(), "SMS not delivered", Toast.LENGTH_SHORT).show();
+                        break;
+                }
+            }
+        };
+        registerReceiver(sendingReceiver, new IntentFilter(SENT));
+        registerReceiver(receivingReceiver, new IntentFilter(DELIVERED));
+        //Send the phoneNumber a message, with sent and delivered pending intents
+        SmsManager sms = SmsManager.getDefault();
+        sms.sendTextMessage(phoneNumber, null, message, sentPI, deliveredPI);
+    }
+
+
     public void onFragmentClickEvent(View v) {
         if (v == BleFrag.getBLEConnectBtn()) {
             logBle("onFragmentClickEvent: BLE Connection event triggered\n");
@@ -264,7 +596,8 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
             BleFrag.enableWrite(false);
             BleFrag.enablePoll(false);
             SCANNING_MODE = "TestBLE";
-            enableBLEThenScan();
+            if(!mConnected)
+                enableBLEThenScan();
         } else if (v == BleFrag.getBLEWriteBtn()) {
             logBle("onFragmentClickEvent: Writing value event triggered\n");
             setCharacteristic(mCharacteristicWrite, mPrefWriteValue);
@@ -311,6 +644,9 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
              */
         } else if (v == WeightFrag.getGetWeightBtn()) {
             WeightFrag.getCalibrateBtn().setBackground(getResources().getDrawable(android.R.drawable.button_onoff_indicator_off));
+            WeightFrag.enableGetWeightBtn(false);
+            //Set button back to "connecting text" since we will not begin to connect
+            WeightFrag.setGetWeightBtnTxt("Searching...");
             /**
              * User requested to get the weight of their bag
              */
@@ -318,7 +654,8 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                 SCANNING_MODE = "";
             else
                 SCANNING_MODE = "getWeight";
-            enableBLEThenScan();
+            if(!mConnected)
+                enableBLEThenScan();
         }
     }
 
@@ -332,60 +669,6 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                     + Character.digit(s.charAt(i+1), 16));
         }
         return data;
-    }
-
-    /**
-     * SMS sending related functions
-     */
-    private void sendSMS(String phoneNumber, String message) {
-        String SENT = "SMS_SENT";
-        String DELIVERED = "SMS_DELIVERED";
-        PendingIntent sentPI = PendingIntent.getBroadcast(this, 0, new Intent(SENT), 0);
-        PendingIntent deliveredPI = PendingIntent.getBroadcast(this, 0, new Intent(DELIVERED), 0);
-        // When the SMS has been sent
-        BroadcastReceiver sendingReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                switch (getResultCode())
-                {
-                    case Activity.RESULT_OK:
-                        Toast.makeText(getBaseContext(), "SMS sent", Toast.LENGTH_SHORT).show();
-                        break;
-                    case SmsManager.RESULT_ERROR_GENERIC_FAILURE:
-                        Toast.makeText(getBaseContext(), "Generic failure", Toast.LENGTH_SHORT).show();
-                        break;
-                    case SmsManager.RESULT_ERROR_NO_SERVICE:
-                        Toast.makeText(getBaseContext(), "No service", Toast.LENGTH_SHORT).show();
-                        break;
-                    case SmsManager.RESULT_ERROR_NULL_PDU:
-                        Toast.makeText(getBaseContext(), "Null PDU", Toast.LENGTH_SHORT).show();
-                        break;
-                    case SmsManager.RESULT_ERROR_RADIO_OFF:
-                        Toast.makeText(getBaseContext(), "Radio off", Toast.LENGTH_SHORT).show();
-                        break;
-                }
-            }
-        };
-        // When the SMS has been delivered
-        BroadcastReceiver receivingReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                switch (getResultCode())
-                {
-                    case Activity.RESULT_OK:
-                        Toast.makeText(getBaseContext(), "SMS delivered", Toast.LENGTH_SHORT).show();
-                        break;
-                    case Activity.RESULT_CANCELED:
-                        Toast.makeText(getBaseContext(), "SMS not delivered", Toast.LENGTH_SHORT).show();
-                        break;
-                }
-            }
-        };
-        registerReceiver(sendingReceiver, new IntentFilter(SENT));
-        registerReceiver(receivingReceiver, new IntentFilter(DELIVERED));
-        //Send the phoneNumber a message, with sent and delivered pending intents
-        SmsManager sms = SmsManager.getDefault();
-        sms.sendTextMessage(phoneNumber, null, message, sentPI, deliveredPI);
     }
 
     /**
@@ -450,6 +733,13 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
         mPrefWeight = prefWeight;
     }
 
+
+
+
+
+
+
+
     public void setCharacteristic(BluetoothGattCharacteristic characteristic, byte[] data) {
         if (characteristic != null && data != null && mBluetoothGatt != null
                 && isCharacteristicWriteable(characteristic)) {
@@ -498,6 +788,37 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
         }
     }
 
+    public void checkCharacteristicProperties(BluetoothGattCharacteristic characteristic, String name){
+        if(characteristic == null) {
+            logBle("checkCharacteristicProperties(): not a valid characteristic UUID for: " + name
+                    + "\n                       Change in preferences.\n");
+            return;
+        }
+        logBle("checkCharacteristicProperties(): Checking " + "\"" + name + "\"" + " characteristic Properties...\n");
+
+        if (isCharacteristicWriteable(characteristic)) {
+            logBle("checkCharacteristicProperties():       Writeable -> true\n");
+            mCharacteristicPermissions[0] = true;
+        } else {
+            logBle("checkCharacteristicProperties():       Writeable -> false\n");
+            mCharacteristicPermissions[0] = false;
+        }
+        if (isCharacteristicReadable(characteristic)) {
+            logBle("checkCharacteristicProperties():       Readable -> true\n");
+            mCharacteristicPermissions[1] = true;
+        } else {
+            logBle("checkCharacteristicProperties():       Readable -> false\n");
+            mCharacteristicPermissions[1] = false;
+        }
+        if (isCharacterisiticNotifiable(characteristic)) {
+            logBle("checkCharacteristicProperties():       Notifiable -> true\n");
+            mCharacteristicPermissions[2] = true;
+        } else {
+            logBle("checkCharacteristicProperties():       Notifiable -> false\n");
+            mCharacteristicPermissions[2] = false;
+        }
+    }
+
     /**
      * @return Returns true if property is writable
      */
@@ -520,6 +841,14 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
         return (properties & BluetoothGattCharacteristic.PROPERTY_NOTIFY) != 0;
     }
 
+
+    /**
+     * BLE SERVICE STARTUP RELATED FUNCTIONS
+     *
+     * Enable BLE
+     *
+     * Scan for devices with a timeout
+     */
     public void enableBLEThenScan() {
         final BluetoothManager bluetoothManager
                 = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
@@ -532,9 +861,13 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
         } else if (mBluetoothAdapter != null && mBluetoothAdapter.isEnabled()) {
             logBle("scanLeDevice(): called\n");
             scanLeDevice(mBluetoothAdapter.isEnabled());
+        } else if (SCANNING_MODE.equals("getWeight")){
+            SCANNING_MODE = "";
+            WeightFrag.enableGetWeightBtn(true);
+            //Set button back to default text
+            WeightFrag.setGetWeightBtnTxt(getString(R.string.get_weight_button_text));
         }
     }
-
     private void scanLeDevice(final boolean enable) {
         if (enable) {
             mHandler.postDelayed(new Runnable() {
@@ -542,8 +875,17 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                 public void run() {
                     if (mScanning) logBle("scanLeDevice(): No correct " +
                             "device was found -> scan stopping\n");
-                    mScanning = false;
                     mBluetoothAdapter.stopLeScan(mLeScanCallback);
+
+                    //Still were scanning to getWeight but we didn't connect. Reset the getWeight btn
+                    if (SCANNING_MODE.equals("getWeight") && !mConnected && mScanning) {
+                        SCANNING_MODE = "";
+                        WeightFrag.enableGetWeightBtn(true);
+                        //Set button back to default text
+                        WeightFrag.setGetWeightBtnTxt(getString(R.string.get_weight_button_text));
+                    }
+                    //Were no longer scanning
+                    mScanning = false;
                 }
             }, SCAN_PERIOD);
 
@@ -553,10 +895,15 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
         } else {
             mScanning = false;
             mBluetoothAdapter.stopLeScan(mLeScanCallback);
+            if (SCANNING_MODE.equals("getWeight")){
+                SCANNING_MODE = "";
+                WeightFrag.enableGetWeightBtn(true);
+                //Set button back to default text
+                WeightFrag.setGetWeightBtnTxt(getString(R.string.get_weight_button_text));
+            }
+
         }
     }
-
-
     // Device scan callback.
     private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
         @Override
@@ -577,7 +924,9 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                         logBle("mLeScanCallback: Preferred Device Found!\n");
                         logBle("mLeScanCallback: CONNECTING to device's GATT server\n");
                         mBluetoothAdapter.stopLeScan(mLeScanCallback);
-                        mBluetoothGatt = device.connectGatt(mBluetoothLeService, false, mBluetoothLeService.mGattCallback);
+                        //Set button back to "Connecting" text
+                        WeightFrag.setGetWeightBtnTxt("Connecting...");
+                        mBluetoothGatt = device.connectGatt(mBle, false, mBle.mGattCallback);
                         logBle("scanLeDevice(): scan stopping\n");
                     }
                 });
@@ -586,250 +935,49 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
         }
     };
 
-    private class BluetoothLeService extends Service {
-        final protected char[] hexArray = "0123456789ABCDEF".toCharArray();
-        private final String TAG = BluetoothLeService.class.getSimpleName();
-        private static final int STATE_DISCONNECTED = 0;
-        private static final int STATE_CONNECTED = 2;
-
-
-        public final BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
-
-
-            @Override
-            public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
-                if (newState == BluetoothProfile.STATE_CONNECTED) {
-                    logBle("onConnectionStateChange(): Connected to GATT server\n");
-                    mConnectionState = STATE_CONNECTED;
-                    mBluetoothGatt.discoverServices();
-                    Log.i(TAG, "Connected to GATT server.");
-                } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                    mConnectionState = STATE_DISCONNECTED;
-                    logBle("onConnectionStateChange(): Disconnected from GATT server\n");
-                    Log.i(TAG, "Disconnected from GATT server.");
-                }
-            }
-
-            @Override
-            public void onServicesDiscovered(BluetoothGatt gatt, int status) {
-                if (status == BluetoothGatt.GATT_SUCCESS) {
-                    logBle("onServicesDiscovered(): attempting to get preferred service: "
-                            + mPrefUUIDService.toString()
-                            + "\n");
-
-                    mService = gatt.getService(mPrefUUIDService);
-                    logBle("onServicesDiscovered(): preferred service verified and received\n");
-                    Log.i(TAG, "Status onServiceDiscovered: " + status);
-
-                    if (mService != null) {
-                        if (SCANNING_MODE.equals("testBLE")) {
-                            //Perform a deeper investigation of the preferred service
-                            logBle("onServicesDiscovered(): Getting \"Read\" and \"Write\" characteristics of service: "
-                                    + mPrefUUIDServiceString + "\n"
-                                    + "          Read UUID: " + mPrefUUIDCharacteristicReadString + "\n"
-                                    + "         Write UUID: " + mPrefUUIDCharacteristicWriteString + "\n");
-                            mCharacteristicRead = mService.getCharacteristic(mPrefUUIDCharacteristicRead);
-                            mCharacteristicWrite = mService.getCharacteristic(mPrefUUIDCharacteristicWrite);
-
-                            checkCharacteristicProperties(mCharacteristicRead, "Read");
-                            checkCharacteristicProperties(mCharacteristicWrite, "Write");
-
-                            //Read the preferred characteristic of the preferred service
-                            if (mCharacteristicRead != null && isCharacteristicReadable(mCharacteristicRead)) {
-                                try {
-                                    logBle("onServicesDiscovered(): Reading \"Read\" characteristic\n");
-                                    mBluetoothGatt.readCharacteristic(mCharacteristicRead);
-                                } catch (Exception e) {
-                                    e.printStackTrace();
-                                }
-                            }
-                            if (mCharacteristicWrite != null && isCharacteristicReadable(mCharacteristicWrite)) {
-                                try {
-                                    logBle("onServicesDiscovered(): Reading \"Write\" characteristic\n");
-                                    mBluetoothGatt.readCharacteristic(mCharacteristicWrite);
-                                } catch (Exception e) {
-                                    e.printStackTrace();
-                                }
-                            }
-                        } else if (SCANNING_MODE.equals("getWeight")) {
-                            mCharacteristicRead = mService.getCharacteristic(mPrefUUIDCharacteristicRead);
-                            mCharacteristicWrite = mService.getCharacteristic(mPrefUUIDCharacteristicWrite);
-                            //Read the preferred characteristic of the preferred service
-                            boolean readReadable = isCharacteristicReadable(mCharacteristicRead);
-                            boolean writeReadable = isCharacteristicReadable(mCharacteristicWrite);
-                            if (mCharacteristicRead != null && mCharacteristicWrite != null) {
-                                try {
-                                    setNotifications(mCharacteristicRead, true);
-                                } catch (Exception e) {
-                                    e.printStackTrace();
-                                }
-                            }
-                        }
-                    } else {
-                        logBle("onServicesDiscovered(): Service UUID does not match a valid UUID for this device. Please change this UUID in app preferences.");
-                    }
-
-                    Log.i(TAG, "Status onServiceDiscovered: " + status);
-
-                } else {
-                    Log.i(TAG, "onServicesDiscovered received: " + status);
-                }
-            }
-
-            @Override
-            // Result of a characteristic read operation
-            public void onCharacteristicRead(BluetoothGatt gatt,
-                                             BluetoothGattCharacteristic characteristic, int status) {
-                if (status == BluetoothGatt.GATT_SUCCESS) {
-                    mCharacteristicValue = characteristic.getValue();
-                    logBle("onCharacteristicRead(): Successfully read Characteristic:\n                       "
-                            + characteristic.getUuid().toString() + "\n" + "                       Value:  0x"
-                            + bytesToHex(mCharacteristicValue) + "\n");
-                    if (SCANNING_MODE.equals("testBLE"))
-                        BleFrag.enableNotify(true);
-                }
-            }
-
-            public void checkCharacteristicProperties(BluetoothGattCharacteristic characteristic, String name){
-                if(characteristic == null) {
-                    logBle("checkCharacteristicProperties(): not a valid characteristic UUID for: " + name
-                            + "\n                       Change in preferences.\n");
-                    return;
-                }
-                logBle("checkCharacteristicProperties(): Checking " + "\"" + name + "\"" + " characteristic Properties...\n");
-
-                if (isCharacteristicWriteable(characteristic)) {
-                    logBle("checkCharacteristicProperties():       Writeable -> true\n");
-                    mCharacteristicPermissions[0] = true;
-                } else {
-                    logBle("checkCharacteristicProperties():       Writeable -> false\n");
-                    mCharacteristicPermissions[0] = false;
-                }
-                if (isCharacteristicReadable(characteristic)) {
-                    logBle("checkCharacteristicProperties():       Readable -> true\n");
-                    mCharacteristicPermissions[1] = true;
-                } else {
-                    logBle("checkCharacteristicProperties():       Readable -> false\n");
-                    mCharacteristicPermissions[1] = false;
-                }
-                if (isCharacterisiticNotifiable(characteristic)) {
-                    logBle("checkCharacteristicProperties():       Notifiable -> true\n");
-                    mCharacteristicPermissions[2] = true;
-                } else {
-                    logBle("checkCharacteristicProperties():       Notifiable -> false\n");
-                    mCharacteristicPermissions[2] = false;
-                }
-            }
-
-            @Override
-            public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status){
-                logBle("onDescriptorWrite:\n                    Descriptor UUID: " + descriptor.getUuid() +
-                        "\n                    Has a new value of: "
-                        + bytesToHex(descriptor.getValue()) + "\n");
-                if (SCANNING_MODE.equals("testBLE")) {
-                    BleFrag.enableWrite(true);
-                    BleFrag.enablePoll(true);
-                } else if (SCANNING_MODE.equals("getWeight")) {
-                    waitingForPower = true;
-                    setCharacteristic(mCharacteristicWrite, cTurnOnPower); //turn on power
-                }
-            }
-
-            @Override
-            public void onCharacteristicChanged(BluetoothGatt gatt,
-                                                BluetoothGattCharacteristic characteristic) {
-                String stringVal = new String(characteristic.getValue());
-                byte[] byteVal= characteristic.getValue();
-                String hexVal = bytesToHex(byteVal);
-
-
-                if(hexVal.charAt(0) == 'A') {
-                    double sensor1 = ( (double)( ( ( (int)byteVal[1] & 0xFF ) * 256 ) + ( (int)byteVal[2] & 0xFF ) ) * 3.3f ) / 4096f;
-                    double sensor2 = ( (double)( ( ( (int)byteVal[3] & 0xFF ) * 256 ) + ( (int)byteVal[4] & 0xFF ) ) * 3.3f ) / 4096f;
-                    if (hexVal.charAt(1) == '1') {
-                        logBle("onCharacteristicChanged:\n                   Characteristic UUID: " + characteristic.getUuid()
-                                + "\n                   Return OpCode: 0xA1 == Test"
-                                + "\n                   Return Data: "
-                                + hexVal.substring(2, hexVal.length()) + "\n");
-                    } else if (hexVal.charAt(1) == '2') {
-                        logSet("onCharacteristicChanged:\n                   Characteristic UUID: " + characteristic.getUuid()
-                                + "\n                   Return OpCode: 0xA2 == Read ADCs"
-                                + "\n                   Return Data:"
-                                + "\n                           Sensor 1: " + sensor1 + "V"
-                                + "\n                           Sensor 2: " + sensor2 + "V\n");
-                                //+ hexVal.substring(2, hexVal.length()) + "\n");
-                        if(polling) {
-                            byte[] data = hexStringToByteArray("0200000000000000000000000000000000000000");
-                            setCharacteristic(mCharacteristicWrite, data);
-                        }
-                    } else if (hexVal.charAt(1) == '3' && waitingForPower) {
-                        waitingForPower = false;
-                        setCharacteristic(mCharacteristicWrite, cGetWeightData);
-                    } else if (hexVal.charAt(1) == '4') {
-                        //TODO: we should have weight sensor data here
-                        double average = ( (double)( ( ( (int)byteVal[1] & 0xFF ) * 256 ) + ( (int)byteVal[2] & 0xFF ) ) * 3.3f ) / 4096f;
-                        double variance = ( (double)( ( ( (int)byteVal[3] & 0xFF ) * 256 ) + ( (int)byteVal[4] & 0xFF ) ) * 3.3f ) / 4096f;
-                        handleGettingWeight(average);
-                        if(SCANNING_MODE.equals("getWeight"))
-                            setCharacteristic(mCharacteristicWrite, cGetWeightData);
-                    }
-                }
-            }
-
-            public String bytesToHex(byte[] bytes) {
-                char[] hexChars = new char[bytes.length * 2];
-                for (int j = 0; j < bytes.length; j++) {
-                    int v = bytes[j] & 0xFF;
-                    hexChars[j * 2] = hexArray[v >>> 4];
-                    hexChars[j * 2 + 1] = hexArray[v & 0x0F];
-                }
-                return new String(hexChars);
-            }
-
-        };
-
-        public void handleGettingWeight(double sensorData) {
-            final double data = sensorData;
-            Runnable handler = new Runnable() {
-                @Override
-                public void run() {
-                    if (weightDataCycle.size() < NUMBER_OF_SAMPLES_PER_CYCLE) {
-                        weightDataCycle.add(data);
-                    } else if (weightDataCycle.size() == NUMBER_OF_SAMPLES_PER_CYCLE) {
-                        double averageRawWeightOverCycle = 0;
-                        for (int i = 0; i < NUMBER_OF_SAMPLES_PER_CYCLE; i++)
-                            averageRawWeightOverCycle += weightDataCycle.get(i);
-                        averageRawWeightOverCycle = averageRawWeightOverCycle / NUMBER_OF_SAMPLES_PER_CYCLE;
-                        if (doCalibrate) {
-                            ZERO_WEIGHTB = averageRawWeightOverCycle/(.00019*1665*2);
-                            WeightFrag.getCalibrateBtn().setBackgroundColor(android.R.drawable.button_onoff_indicator_off);
-                            doCalibrate = false;
-                        } else {
-                            weightDataCycle.clear();
-                            WeightFrag.setDisplayedWeight((averageRawWeightOverCycle)/(0.00019*1665*2) - ZERO_WEIGHTB);
-                        }
-                    }
-                }
-            };
-            try {
-                getWeightLock.acquire();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            runOnUiThread(handler);
-            getWeightLock.release();
-
+    final protected char[] hexArray = "0123456789ABCDEF".toCharArray();
+    public String bytesToHex(byte[] bytes) {
+        char[] hexChars = new char[bytes.length * 2];
+        for (int j = 0; j < bytes.length; j++) {
+            int v = bytes[j] & 0xFF;
+            hexChars[j * 2] = hexArray[v >>> 4];
+            hexChars[j * 2 + 1] = hexArray[v & 0x0F];
         }
-
-        //Necessary for implementing a Service
-        @Override
-        public IBinder onBind(Intent intent) {
-            return null;
-        }
+        return new String(hexChars);
     }
 
+    public void handleGettingWeight(double sensorData) {
+        final double data = sensorData;
+        Runnable handler = new Runnable() {
+            @Override
+            public void run() {
+                if (weightDataCycle.size() < NUMBER_OF_SAMPLES_PER_CYCLE) {
+                    weightDataCycle.add(data);
+                } else if (weightDataCycle.size() == NUMBER_OF_SAMPLES_PER_CYCLE) {
+                    double averageRawWeightOverCycle = 0;
+                    for (int i = 0; i < NUMBER_OF_SAMPLES_PER_CYCLE; i++)
+                        averageRawWeightOverCycle += weightDataCycle.get(i);
+                    averageRawWeightOverCycle = averageRawWeightOverCycle / NUMBER_OF_SAMPLES_PER_CYCLE;
+                    if (doCalibrate) {
+                        ZERO_WEIGHTB = averageRawWeightOverCycle/(.00019*1665*2);
+                        WeightFrag.getCalibrateBtn().setBackgroundColor(android.R.drawable.button_onoff_indicator_off);
+                        doCalibrate = false;
+                    } else {
+                        weightDataCycle.clear();
+                        WeightFrag.setDisplayedWeight((averageRawWeightOverCycle)/(0.00019*1665*2) - ZERO_WEIGHTB);
+                    }
+                }
+            }
+        };
+        try {
+            getWeightLock.acquire();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        runOnUiThread(handler);
+        getWeightLock.release();
 
-
+    }
 
 
 
@@ -845,4 +993,5 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
     public interface OnFragmentInteractionListener {
         public void onFragmentInteraction(Uri uri);
     }
+
 }
