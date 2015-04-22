@@ -68,5 +68,21 @@
         android:summary="@string/settings_weightKg_summary"
         android:defaultValue="@string/settings_weightKg_default"/>
 
+    <!--Whether or not the dashboard should be in debug mode-->
+    <CheckBoxPreference
+        android:key="@string/settings_debug_mode_key"
+        android:title="@string/settings_debug_mode_title"
+        android:id="@string/settings_debug_mode_id"
+        android:summary="@string/settings_debug_mode_summary"
+        android:defaultValue="@string/settings_debug_mode_default"/>
+
+    <!--Whether or not the dashboard should simulate the analytics-->
+    <CheckBoxPreference
+        android:key="@string/settings_simulate_key"
+        android:title="@string/settings_simulate_title"
+        android:id="@string/settings_simulate_id"
+        android:summary="@string/settings_simulate_summary"
+        android:defaultValue="@string/settings_simulate_default"/>
+
 
 </PreferenceScreen>

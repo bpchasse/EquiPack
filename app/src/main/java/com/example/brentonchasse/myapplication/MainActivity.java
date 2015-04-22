@@ -20,6 +20,7 @@ import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.graphics.PorterDuff;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Message;
@@ -33,6 +34,7 @@ import android.support.v4.widget.DrawerLayout;
 import android.os.Handler;
 import android.widget.Toast;
 
+import java.nio.channels.ScatteringByteChannel;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -92,8 +94,13 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
     public String mPrefUUIDServiceString;
     public String mPrefUUIDCharacteristicReadString;
     public String mPrefUUIDCharacteristicWriteString;
+
     public byte[] cTurnOnPower;
     public byte[] cGetWeightData;
+    public byte[][] cSensor = new byte[8][];
+    public int[] mSensorData = {-1,-1,-1,-1,-1,-1,-1,-1};
+    public int mCurrentSensorNumber = 0;
+
     public byte[] mPrefWriteValue;
     public boolean polling = false;
     public boolean waitingForPower = false;
@@ -103,6 +110,7 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
     private final Semaphore logLock = new Semaphore(1);
     private final Semaphore getWeightLock = new Semaphore(1);
     private final Semaphore handlerLock = new Semaphore(1);
+    private final Semaphore getSensorLock = new Semaphore(1);
 
     private final static int NUMBER_OF_SAMPLES_PER_CYCLE = 10;
     private double ZERO_WEIGHTB = 50.5;
@@ -121,6 +129,15 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
         mTitle = getTitle();
         cTurnOnPower = hexStringToByteArray("0301000000000000000000000000000000000000");
         cGetWeightData = hexStringToByteArray("0408000000000000000000000000000000000000");
+        cSensor[0] = hexStringToByteArray("04000D0000000000000000000000000000000000");
+        cSensor[1] = hexStringToByteArray("04010D0000000000000000000000000000000000");
+        cSensor[2] = hexStringToByteArray("04020D0000000000000000000000000000000000");
+        cSensor[3] = hexStringToByteArray("04030D0000000000000000000000000000000000");
+        cSensor[4] = hexStringToByteArray("04040D0000000000000000000000000000000000");
+        cSensor[5] = hexStringToByteArray("04050D0000000000000000000000000000000000");
+        cSensor[6] = hexStringToByteArray("04060D0000000000000000000000000000000000");
+        cSensor[7] = hexStringToByteArray("04070D0000000000000000000000000000000000");
+
 
         // Set up the Navigation drawer.
         mNavigationDrawerFragment.setUp(R.id.navigation_drawer, (DrawerLayout) findViewById(R.id.drawer_layout));
@@ -153,7 +170,7 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
 
         //Initialize Bluetooth adapter
         //enableBLEThenScan();
-        //sendSMS("8603028885", "Equipack says 'Hello'");
+        sendSMS("8603028885", "Equipack says 'Hello'");
     }
 
     @Override
@@ -277,7 +294,13 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                 mBleMessenger.send(Message.obtain(null, BleService.MSG_SET_SERVICE_UUID, mPrefUUIDService));
                 mBluetoothGatt.discoverServices();
                 //Set button back to "Discovering" text
-                WeightFrag.setGetWeightBtnTxt("Discovering...");
+                if(SCANNING_MODE.equals("getWeight")) {
+                    WeightFrag.setGetWeightBtnTxt("Discovering...");
+                }else if(SCANNING_MODE.equals("getSensors")) {
+                    DashboardFrag.setMessageText("Connected");
+                    DashboardFrag.setAddDataBtnEnabled(true, "STOP!");
+                    DashboardFrag.setAddDataBtnColor(R.drawable.rounded_corner_red);
+                }
             } catch (RemoteException e) {
                 mBleMessenger = null;
             }
@@ -312,7 +335,7 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                     e.printStackTrace();
                 }
             }
-        } else if (SCANNING_MODE.equals("getWeight")) {
+        } else if (SCANNING_MODE.equals("getWeight") || SCANNING_MODE.equals("getSensors")) {
             mCharacteristicRead = mService.getCharacteristic(mPrefUUIDCharacteristicRead);
             mCharacteristicWrite = mService.getCharacteristic(mPrefUUIDCharacteristicWrite);
             boolean isNotifiable = isCharacterisiticNotifiable(mCharacteristicRead);
@@ -322,7 +345,11 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                 try {
                     setNotifications(mCharacteristicRead, true);
                     //Set button back to "Setting up" text
-                    WeightFrag.setGetWeightBtnTxt("Setting up...");
+                    if(SCANNING_MODE.equals("getSensors")){
+                        DashboardFrag.setMessageText("Setting up...");
+                    } else if(SCANNING_MODE.equals("getWeight")){
+                        WeightFrag.setGetWeightBtnTxt("Setting up...");
+                    }
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -347,10 +374,13 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
             BleFrag.enableWrite(true);
             BleFrag.enablePoll(true);
         } else if (SCANNING_MODE.equals("getWeight")) {
-            waitingForPower = true;
-            setCharacteristic(mCharacteristicWrite, cTurnOnPower); //turn on power
+            //waitingForPower = true;
+            //setCharacteristic(mCharacteristicWrite, cTurnOnPower); //turn on power
+            setCharacteristic(mCharacteristicWrite, cGetWeightData);
             //Set button back to "Powering" text
             WeightFrag.setGetWeightBtnTxt("Powering up...");
+        } else if (SCANNING_MODE.equals("getSensors")) {
+            setCharacteristic(mCharacteristicWrite, cSensor[mCurrentSensorNumber]);
         }
     }
     private void updateHandler(Object obj){
@@ -378,39 +408,139 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                     byte[] data = hexStringToByteArray("0200000000000000000000000000000000000000");
                     setCharacteristic(mCharacteristicWrite, data);
                 }
-            } else if (hexVal.charAt(1) == '3' && waitingForPower) {
-                waitingForPower = false;
+            } else if (hexVal.charAt(1) == '3' /*&& waitingForPower*/) {
+                //waitingForPower = false;
                 setCharacteristic(mCharacteristicWrite, cGetWeightData);
-            } else if (hexVal.charAt(1) == '4') {
+                WeightFrag.setGetWeightBtnTxt("EquiPack Awake!");
+            } else if (hexVal.charAt(1) == '4' && hexVal.charAt(3) == '8') {
                 double average = ( (double)( ( ( (int)byteVal[1] & 0xFF ) * 256 ) + ( (int)byteVal[2] & 0xFF ) ) * 3.3f ) / 4096f;
                 double variance = ( (double)( ( ( (int)byteVal[3] & 0xFF ) * 256 ) + ( (int)byteVal[4] & 0xFF ) ) * 3.3f ) / 4096f;
 
                 handleGettingWeight(average);
 
-                //TODO: This is where we need to stop the data requesting iterations
                 if(SCANNING_MODE.equals("getWeight")) {
                     setCharacteristic(mCharacteristicWrite, cGetWeightData);
                     //Set button back to "Running!" text
+                    WeightFrag.enableGetWeightBtn(true);
+                    WeightFrag.getGetWeightBtn().setBackground(getResources().getDrawable(R.drawable.rounded_corner));
                     WeightFrag.setGetWeightBtnTxt("Running!");
                 } else {
                     WeightFrag.enableGetWeightBtn(true);
+                    WeightFrag.getGetWeightBtn().setBackground(getResources().getDrawable(R.drawable.rounded_corner));
                     //Set button back to default text
                     WeightFrag.setGetWeightBtnTxt(getString(R.string.get_weight_button_text));
+                }
+            } else if (hexVal.charAt(1) == '4') {
+                if(SCANNING_MODE.equals("getSensors")) {
+                    //If the current sensor number matches the sensor number that we just received data for
+
+                        //get the sensor data from byteVal
+                        int sensorData = ( ( (int)byteVal[1] << 256) & 0xFF ) + ( ( (int)byteVal[2] ) & 0xFF );
+
+                        try {
+                            getSensorLock.acquire();
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                        //put the sensor data in the array of data received
+                        final int currNum = mCurrentSensorNumber;
+                        mSensorData[mCurrentSensorNumber] = sensorData;
+                        getSensorLock.release();
+
+                        if(mCurrentSensorNumber == 7){
+                            //send the array of data to the analytics
+                            new Thread ( new Runnable() {
+                                @Override
+                                public void run() {
+                                    try {
+                                        getSensorLock.acquire();
+                                    } catch (InterruptedException e) {
+                                        e.printStackTrace();
+                                    }
+
+                                    int curr = currNum;
+
+                                    if(DashboardFrag.isSimulating()) {
+                                        analytics.testWeightAnalytics();
+                                        analytics.resetAnalyticsVariables();
+                                    } else {
+
+                                        if(DashboardFrag.isDebugging()) {
+                                            boolean noData = true;
+                                            for (int m = 0; m < mSensorData.length; m++) {
+                                                if(mSensorData[m] != -1) {
+                                                    noData = false;
+                                                    break;
+                                                }
+                                            }
+                                            if (noData) {
+                                                final int[] data = {1, 2, 3, 4, 5, 6, 7, 8};
+                                                DashboardFrag.updateDebugData(data);
+                                            } else {
+                                                final int[] unprocessedDataSet = mSensorData;
+                                                DashboardFrag.updateDebugData(unprocessedDataSet);
+                                            }
+
+                                        } else {
+                                            //TODO: do colin's stuff
+                                            //8 unprocessed data points are stored in the int[] mSensorData
+                                            //There is a global instance if your analytics called "analytics"
+                                            final int[] unprocessedDataSet = mSensorData;
+                                            //Let's assume the new function is defined "public int colin(final int[] dataSetToProcess)"
+
+                                            /*
+                                            int feedbackReturnValue = analytics.colin(unprocessedDataSet);
+                                             */
+                                        }
+                                    }
+                                    mCurrentSensorNumber = 0;
+                                    getSensorLock.release();
+                                }
+                            }).start();
+                        } else {
+                            try {
+                                getSensorLock.acquire();
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
+                            mCurrentSensorNumber++;
+                            getSensorLock.release();
+                        }
+                    try {
+                        getSensorLock.acquire();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    //always do this, mCurrentSensorNumber is the same as before(if received data was for wrong sensor)
+                        //Otherwise mCurrentSensorNumber has been changed to the next sensor number that we need to get
+                    setCharacteristic(mCharacteristicWrite, cSensor[mCurrentSensorNumber]);
+                    getSensorLock.release();
                 }
             }
         }
     }
+
+    private void resetSensors() {
+        mCurrentSensorNumber = 0;
+        //set the array back to its unfilled initial state
+        for(int i = 0; i < mSensorData.length; i++)
+            mSensorData[i] = -1;
+    }
     private void disconnectedHandler(Object obj) {
         mConnected = false;
-        //TODO: what do I do when i'm disconnected
         if (SCANNING_MODE.equals("getWeight") || WeightFrag.getGetWeightBtn() != null){
             SCANNING_MODE = "";
             WeightFrag.enableGetWeightBtn(true);
-            //Set button back to default text
+            WeightFrag.getGetWeightBtn().setBackground(getResources().getDrawable(R.drawable.rounded_corner));
             WeightFrag.setGetWeightBtnTxt(getString(R.string.get_weight_button_text));
+        } else if (SCANNING_MODE.equals("getSensors") || DashboardFrag.getAddDataBtn() != null) {
+            SCANNING_MODE = "";
+            DashboardFrag.setAddDataBtnEnabled(true, "Optimize!");
+            DashboardFrag.setAddDataBtnColor(R.drawable.rounded_corner);
+            DashboardFrag.setMessageText("Disconnected from Pack.");
         }
-        //doUnbindService();
     }
+
     /**
      * Target we publish for clients to send messages to IncomingHandler.
      */
@@ -432,7 +562,6 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
             msg.replyTo = mMessenger;
             try {
                 mBleMessenger.send(msg);
-                //TODO:Send first command to service here
             } catch (RemoteException e) {
                 // In this case the service has crashed before we could even
                 // do anything with it; we can count on soon being
@@ -617,21 +746,52 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
             logBle("onFragmentClickEvent(): Attempting to enable notifications on \"Read\" characteristic\n");
             setNotifications(mCharacteristicRead, true);
         } else if (v == DashboardFrag.getAddDataBtn()) {
-            //int x = DashboardFrag.getXFromInput();
-            double y = DashboardFrag.getYFromInput();
-            if (y != -Double.MAX_VALUE && y != 00.00)
-                DashboardFrag.addDataPoint(y);
-            else if (y == 00.00) {
-                new Thread ( new Runnable() {
-                    @Override
-                    public void run() {
-                        analytics.testWeightAnalytics();
-                        analytics.resetAnalyticsVariables();
-                    }
-                }).start();
+            boolean debugging = DashboardFrag.isDebugging();
 
-            } else
-                Toast.makeText(getApplicationContext(), "Please enter valid Integer Y-Value to add to the graph.", Toast.LENGTH_SHORT).show();
+            if(!mConnected) {
+                DashboardFrag.setMessageText("Searching for device...");
+                DashboardFrag.setAddDataBtnEnabled(false, "Searching");
+                DashboardFrag.setAddDataBtnColor(R.drawable.rounded_corner_pressed);
+                if(!DashboardFrag.isSimulating() || DashboardFrag.isDebugging())
+                    enableBLEThenScan();
+            } else if (SCANNING_MODE.equals("")){
+                DashboardFrag.setMessageText("Resuming connection (powering up)...");
+                /*
+                    Start requesting sensor data with this command
+                    Only request if we aren't simulating
+                 */
+                if(!DashboardFrag.isSimulating())
+                    setCharacteristic(mCharacteristicWrite, cSensor[mCurrentSensorNumber]);
+            } else if (SCANNING_MODE.equals("getSensors")) {
+                //We are trying to stop scanning
+                DashboardFrag.setMessageText(getString(R.string.dashboard_graph_title));
+                DashboardFrag.setAddDataBtnEnabled(true, "Optimize!");
+                DashboardFrag.setAddDataBtnColor(R.drawable.rounded_corner);
+            }
+
+            if(SCANNING_MODE.equals("getSensors")) {
+                SCANNING_MODE = "";
+                mCurrentSensorNumber = 0;
+                //DashboardFrag.setAddDataBtnColor(R.drawable.rounded_corner_red);
+            }else {
+                SCANNING_MODE = "getSensors";
+            }
+
+
+            if (!DashboardFrag.isDebugging()) {
+                DashboardFrag.setAddDataBtnEnabled(false, "Processing");
+                DashboardFrag.setAddDataBtnColor(R.drawable.rounded_corner_pressed);
+                //TODO: this code shows that the debugger ui can be updated
+                if (DashboardFrag.isSimulating()) {
+                    new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            analytics.testWeightAnalytics();
+                            analytics.resetAnalyticsVariables();
+                        }
+                    }).start();
+                }
+            }
 
         } else if (v == WeightFrag.getCalibrateBtn()) {
             if(!doCalibrate)
@@ -645,17 +805,26 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
         } else if (v == WeightFrag.getGetWeightBtn()) {
             WeightFrag.getCalibrateBtn().setBackground(getResources().getDrawable(android.R.drawable.button_onoff_indicator_off));
             WeightFrag.enableGetWeightBtn(false);
+            WeightFrag.getGetWeightBtn().setBackground(getResources().getDrawable(R.drawable.rounded_corner_pressed));
             //Set button back to "connecting text" since we will not begin to connect
-            WeightFrag.setGetWeightBtnTxt("Searching...");
             /**
              * User requested to get the weight of their bag
              */
+            if(!mConnected) {
+                WeightFrag.setGetWeightBtnTxt("Searching...");
+                enableBLEThenScan();
+            } else if (SCANNING_MODE.equals("")){
+                WeightFrag.setGetWeightBtnTxt("Resuming...");
+                setCharacteristic(mCharacteristicWrite, cGetWeightData);
+            } else if (SCANNING_MODE.equals("getWeight")) {
+                WeightFrag.enableGetWeightBtn(true);
+                WeightFrag.getGetWeightBtn().setBackground(getResources().getDrawable(R.drawable.rounded_corner));
+                WeightFrag.setGetWeightBtnTxt(getString(R.string.get_weight_button_text));
+            }
             if(SCANNING_MODE.equals("getWeight"))
                 SCANNING_MODE = "";
             else
                 SCANNING_MODE = "getWeight";
-            if(!mConnected)
-                enableBLEThenScan();
         }
     }
 
@@ -850,23 +1019,29 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
      * Scan for devices with a timeout
      */
     public void enableBLEThenScan() {
-        final BluetoothManager bluetoothManager
-                = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
-        mBluetoothAdapter = bluetoothManager.getAdapter();
-        //Enable Bluetooth
-        if (mBluetoothAdapter == null || !mBluetoothAdapter.isEnabled()) {
-            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-            startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
-            logBle("Requesting user to turn BLE ON\n");
-        } else if (mBluetoothAdapter != null && mBluetoothAdapter.isEnabled()) {
-            logBle("scanLeDevice(): called\n");
-            scanLeDevice(mBluetoothAdapter.isEnabled());
-        } else if (SCANNING_MODE.equals("getWeight")){
-            SCANNING_MODE = "";
-            WeightFrag.enableGetWeightBtn(true);
-            //Set button back to default text
-            WeightFrag.setGetWeightBtnTxt(getString(R.string.get_weight_button_text));
-        }
+        new Thread (new Runnable() {
+            @Override
+            public void run() {
+                final BluetoothManager bluetoothManager
+                        = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+                mBluetoothAdapter = bluetoothManager.getAdapter();
+                //Enable Bluetooth
+                if (mBluetoothAdapter == null || !mBluetoothAdapter.isEnabled()) {
+                    Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+                    startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
+                    logBle("Requesting user to turn BLE ON\n");
+                } else if (mBluetoothAdapter != null && mBluetoothAdapter.isEnabled()) {
+                    logBle("scanLeDevice(): called\n");
+                    scanLeDevice(mBluetoothAdapter.isEnabled());
+                } else if (SCANNING_MODE.equals("getWeight")){
+                    SCANNING_MODE = "";
+                    WeightFrag.enableGetWeightBtn(true);
+                    WeightFrag.getGetWeightBtn().setBackground(getResources().getDrawable(R.drawable.rounded_corner));
+                    //Set button back to default text
+                    WeightFrag.setGetWeightBtnTxt(getString(R.string.get_weight_button_text));
+                }
+            }
+        }).start();
     }
     private void scanLeDevice(final boolean enable) {
         if (enable) {
@@ -881,8 +1056,14 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                     if (SCANNING_MODE.equals("getWeight") && !mConnected && mScanning) {
                         SCANNING_MODE = "";
                         WeightFrag.enableGetWeightBtn(true);
+                        WeightFrag.getGetWeightBtn().setBackground(getResources().getDrawable(R.drawable.rounded_corner));
                         //Set button back to default text
                         WeightFrag.setGetWeightBtnTxt(getString(R.string.get_weight_button_text));
+                    } else if (SCANNING_MODE.equals("getSensors") && !mConnected && mScanning) {
+                        SCANNING_MODE = "";
+                        DashboardFrag.setMessageText("Unable to locate Pack.");
+                        DashboardFrag.setAddDataBtnEnabled(true, "Optimize!");
+                        DashboardFrag.setAddDataBtnColor(R.drawable.rounded_corner);
                     }
                     //Were no longer scanning
                     mScanning = false;
@@ -898,6 +1079,7 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
             if (SCANNING_MODE.equals("getWeight")){
                 SCANNING_MODE = "";
                 WeightFrag.enableGetWeightBtn(true);
+                WeightFrag.getGetWeightBtn().setBackground(getResources().getDrawable(R.drawable.rounded_corner));
                 //Set button back to default text
                 WeightFrag.setGetWeightBtnTxt(getString(R.string.get_weight_button_text));
             }
@@ -925,7 +1107,10 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                         logBle("mLeScanCallback: CONNECTING to device's GATT server\n");
                         mBluetoothAdapter.stopLeScan(mLeScanCallback);
                         //Set button back to "Connecting" text
-                        WeightFrag.setGetWeightBtnTxt("Connecting...");
+                        if(SCANNING_MODE.equals("getWeight"))
+                            WeightFrag.setGetWeightBtnTxt("Connecting...");
+                        else if (SCANNING_MODE.equals("getSensors"))
+                            DashboardFrag.setMessageText("Connecting...");
                         mBluetoothGatt = device.connectGatt(mBle, false, mBle.mGattCallback);
                         logBle("scanLeDevice(): scan stopping\n");
                     }

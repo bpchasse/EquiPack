@@ -3,29 +3,29 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context="com.example.brentonchasse.myapplication.WeightFragment"
-    android:background="@android:color/black"
+    android:background="#ffc0c0c0"
     android:orientation="vertical"
     android:weightSum="1">
 
     <!-- TODO: Update blank fragment layout -->
     <TextView
         android:layout_width="wrap_content"
-        android:layout_height="40dp"
+        android:layout_height="60dp"
         android:text="@string/weight_fragment"
-        android:background="@android:color/black"
-        android:textColor="@android:color/holo_blue_light"
-        android:layout_gravity="center_horizontal"
+        android:background="@drawable/rounded_corner"
+        android:textColor="#eeeeee"
+        android:layout_gravity="center"
         android:layout_marginTop="50dp"
         android:layout_marginBottom="50dp"
-        android:textStyle="bold"
         android:inputType="none"
-        android:textSize="40dp"
-        android:layout_weight="0.15"/>
+        android:textSize="35dp"
+        android:layout_weight="0.15"
+        android:gravity="center_vertical|center_horizontal"/>
 
     <FrameLayout
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
-        android:background="@android:color/holo_blue_light"
+        android:background="@drawable/rounded_corner"
         android:layout_marginLeft="15dp"
         android:layout_marginRight="15dp">
 
@@ -39,7 +39,6 @@
             android:textColor="@android:color/holo_green_light"
             android:textSize="75dp"
             android:textIsSelectable="true"
-            android:background="@android:color/black"
             android:layout_margin="3dp"/>
     </FrameLayout>
 
@@ -48,7 +47,7 @@
         android:layout_height="wrap_content"
         android:id="@+id/weightInKgSwitch"
         android:layout_marginTop="15dp"
-        android:textColor="@android:color/holo_blue_light"
+        android:textColor="#626262"
         android:textAlignment="inherit"
         android:text="@string/weight_in_kg_switch_text"
         android:layout_marginRight="15dp"
@@ -78,7 +77,8 @@
         android:layout_marginLeft="10dp"
         android:layout_marginRight="10dp"
         android:layout_marginTop="20dp"
-        android:layout_weight="0.05"/>
+        android:layout_weight="0.05"
+        android:visibility="gone"/>
 
     <Button
         style="?android:attr/buttonStyleSmall"
@@ -88,7 +88,9 @@
         android:id="@+id/getWeightBtn"
         android:layout_gravity="center_horizontal|bottom"
         android:layout_marginTop="20dp"
-        android:textColor="@android:color/white"
-        android:onClick="onFragmentClickEvent"/>
+        android:textColor="#eeeeee"
+        android:onClick="onFragmentClickEvent"
+        android:background="@drawable/rounded_corner"
+        android:gravity="center_vertical|center_horizontal"/>
 
 </LinearLayout>

@@ -281,23 +281,40 @@ public class EquipackAnalytics {
             if (result != -1 * Double.MAX_VALUE && (stage == 0 || result == 0 && stage == 1)) {
                 /**All UI changes made here must be specifically run in the UI thread, this is a forked thread **/
                 if(i == 0) {
-                    DashboardFrag.setArrowLayoutVisibility(View.GONE);
-                    DashboardFrag.setGraphVisibility(View.VISIBLE);
+                    DashboardFrag.setArrowLayoutVisibility(View.VISIBLE);
+                    DashboardFrag.setGraphVisibility(View.GONE);
+                    //DashboardFrag.setArrowLayoutVisibility(View.GONE);
+                    //DashboardFrag.setGraphVisibility(View.VISIBLE);
                 }
                 if (result > 0) {
                     DashboardFrag.setMessageText("Tighten RIGHT strap.");
+                    DashboardFrag.setRightDownArrowVisibility(View.VISIBLE);
+                    DashboardFrag.setLeftDownArrowVisibility(View.INVISIBLE);
+                    DashboardFrag.setRightUpArrowVisibility(View.INVISIBLE);
+                    DashboardFrag.setLeftUpArrowVisibility(View.INVISIBLE);
                 } else if (result < 0) {
                     DashboardFrag.setMessageText("Tighten LEFT strap.");
+                    DashboardFrag.setRightDownArrowVisibility(View.INVISIBLE);
+                    DashboardFrag.setLeftDownArrowVisibility(View.VISIBLE);
+                    DashboardFrag.setRightUpArrowVisibility(View.INVISIBLE);
+                    DashboardFrag.setLeftUpArrowVisibility(View.INVISIBLE);
                 } else if (result == 0) {
                     DashboardFrag.setMessageText("Straps are symmetric!");
-                    DashboardFrag.addDataPoint(result);
+                    /*
+                        Hide all of the arrows once symmetric
+                     */
+                    DashboardFrag.setLeftDownArrowVisibility(View.INVISIBLE);
+                    DashboardFrag.setRightDownArrowVisibility(View.INVISIBLE);
+                    DashboardFrag.setLeftUpArrowVisibility(View.INVISIBLE);
+                    DashboardFrag.setRightUpArrowVisibility(View.INVISIBLE);
+                    //DashboardFrag.addDataPoint(result);
                     try {
                         Thread.sleep(1500);
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
                 }
-                if(result != 0) DashboardFrag.addDataPoint(result);
+                //if(result != 0) DashboardFrag.addDataPoint(result);
             }
             //If now in the "Height" stage
             if (result != -1 * Double.MAX_VALUE && stage == 1) {
@@ -305,26 +322,28 @@ public class EquipackAnalytics {
                 DashboardFrag.setArrowLayoutVisibility(View.VISIBLE);
                 if(result > 0 && result != last) {
 //show an up arrow
-                    DashboardFrag.setMessageText("Raise bag by shortening both straps.");
-                    DashboardFrag.setLeftUpArrowVisibility(View.VISIBLE);
-                    DashboardFrag.setRightUpArrowVisibility(View.VISIBLE);
-                    DashboardFrag.setLeftDownArrowVisibility(View.GONE);
-                    DashboardFrag.setRightDownArrowVisibility(View.GONE);
+                    DashboardFrag.setMessageText("Raise bag by tightening both straps.");
+                    DashboardFrag.setLeftDownArrowVisibility(View.VISIBLE);
+                    DashboardFrag.setRightDownArrowVisibility(View.VISIBLE);
+                    DashboardFrag.setLeftUpArrowVisibility(View.INVISIBLE);
+                    DashboardFrag.setRightUpArrowVisibility(View.INVISIBLE);
                     last = result;
                 } else if (result < 0 && result != last) {
 //show a down arrow
-                    DashboardFrag.setMessageText("Lower bag by lengthening both straps.");
-                    DashboardFrag.setLeftDownArrowVisibility(View.VISIBLE);
-                    DashboardFrag.setRightDownArrowVisibility(View.VISIBLE);
-                    DashboardFrag.setLeftUpArrowVisibility(View.GONE);
-                    DashboardFrag.setRightUpArrowVisibility(View.GONE);
+                    DashboardFrag.setMessageText("Lower bag by loosening both straps.");
+                    DashboardFrag.setLeftUpArrowVisibility(View.VISIBLE);
+                    DashboardFrag.setRightUpArrowVisibility(View.VISIBLE);
+                    DashboardFrag.setLeftDownArrowVisibility(View.INVISIBLE);
+                    DashboardFrag.setRightDownArrowVisibility(View.INVISIBLE);
                     last = result;
                 }
             }
             //If now in the "Height" stage
             if (result != -1 * Double.MAX_VALUE && stage == 2) {
-                DashboardFrag.setArrowLayoutVisibility(View.GONE);
-                DashboardFrag.setGraphVisibility(View.VISIBLE);
+                DashboardFrag.setArrowLayoutVisibility(View.VISIBLE);
+                //DashboardFrag.setArrowLayoutVisibility(View.INVISIBLE);
+                //DashboardFrag.setGraphVisibility(View.VISIBLE);
+                DashboardFrag.setGraphVisibility(View.GONE);
                 if(result > 0) {
 //idk
                 } else if (result < 0) {
@@ -333,11 +352,23 @@ public class EquipackAnalytics {
             }
         }
         //Bag has been positioned sucessfully
-        DashboardFrag.populateDataPoints();  //set all points to 0
-        DashboardFrag.updateDataSeries();   //update the graphed series
-        DashboardFrag.setMessageText("");
-        DashboardFrag.setGraphVisibility(View.VISIBLE);  //Put a "new" graph into view of the user
-        DashboardFrag.setArrowLayoutVisibility(View.GONE);
+
+        //DashboardFrag.populateDataPoints();  //set all points to 0
+        //DashboardFrag.updateDataSeries();   //update the graphed series
+
+        DashboardFrag.setMessageText("Optimized!");
+        DashboardFrag.setAddDataBtnEnabled(true, "Optimize!");
+        //DashboardFrag.setGraphVisibility(View.VISIBLE);  //Put a "new" graph into view of the user
+        //DashboardFrag.setArrowLayoutVisibility(View.INVISIBLE);
+        DashboardFrag.setGraphVisibility(View.GONE);
+        /*
+            Hide all of the arrows once optimized
+         */
+        DashboardFrag.setLeftDownArrowVisibility(View.INVISIBLE);
+        DashboardFrag.setRightDownArrowVisibility(View.INVISIBLE);
+        DashboardFrag.setLeftUpArrowVisibility(View.INVISIBLE);
+        DashboardFrag.setRightUpArrowVisibility(View.INVISIBLE);
+        //DashboardFrag.setArrowLayoutVisibility(View.VISIBLE);
     }
 
     public void resetAnalyticsVariables() {

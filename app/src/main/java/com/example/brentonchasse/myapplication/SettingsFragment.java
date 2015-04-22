@@ -13,6 +13,7 @@ import android.preference.Preference;
 import android.preference.PreferenceFragment;
 import android.preference.PreferenceManager;
 import android.widget.EditText;
+import android.widget.Toast;
 
 
 /**
@@ -97,17 +98,32 @@ public class SettingsFragment extends PreferenceFragment implements SharedPrefer
                   activity.setPrefWriteValue(newVal);
               }
           } else if (key.equals(getString(R.string.settings_weight_key))) {
-              newVal = "" + sharedPreferences.getInt(key, -1) + "";
+              newVal = sharedPreferences.getString(key, "125");
               if (Integer.valueOf(newVal) != -1     //weight should be > 0lbs && < 1000lbs
                             && Integer.valueOf(newVal) > 0
                             && Integer.valueOf(newVal) < 1000) {
                   activity.setPrefWeight(Integer.valueOf(newVal));
+              } else {
+                  activity.setPrefWeight(125);
+                  final Activity that = activity;
+                  activity.runOnUiThread(new Runnable() {
+                      @Override
+                      public void run() {
+                        Toast.makeText(that.getBaseContext(), "Invalid weight entered. Default is 125", Toast.LENGTH_SHORT).show();
+                      }
+                  });
               }
           } else if (key.equals(getString(R.string.settings_inputDone_key))) {
               activity.DashboardFrag.setInputMeansDone(sharedPreferences.getBoolean(key,false));
           } else if (key.equals(getString(R.string.settings_weightKg_key))) {
               boolean inKg = sharedPreferences.getBoolean(key, false);
               activity.WeightFrag.setWeightInKg(inKg);
+          } else if (key.equals(getString(R.string.settings_debug_mode_key))) {
+              boolean inDebug = sharedPreferences.getBoolean(key, false);
+              activity.DashboardFrag.setDebugMode(inDebug);
+          } else if (key.equals(getString(R.string.settings_simulate_key))) {
+              boolean simulate = sharedPreferences.getBoolean(key, false);
+              activity.DashboardFrag.setSimulateMode(simulate);
           }
           //Save the changes made to the preferences if they need to be changed.
           onSharedPreferenceChanged(null, "");
@@ -141,6 +157,14 @@ public class SettingsFragment extends PreferenceFragment implements SharedPrefer
           setHelperB = (CheckBoxPreference) findPreference(getString(R.string.settings_weightKg_key));
           setHelperB.setDefaultValue(R.string.settings_weightKg_default);
           sharedPreferences1.edit().putBoolean(getString(R.string.settings_weightKg_key), setHelperB.isChecked()).apply();
+
+          setHelperB = (CheckBoxPreference) findPreference(getString(R.string.settings_debug_mode_key));
+          setHelperB.setDefaultValue(getString(R.string.settings_debug_mode_default));
+          sharedPreferences1.edit().putBoolean(getString(R.string.settings_debug_mode_key), setHelperB.isChecked()).apply();
+
+          setHelperB = (CheckBoxPreference) findPreference(getString(R.string.settings_simulate_key));
+          setHelperB.setDefaultValue(getString(R.string.settings_simulate_default));
+          sharedPreferences1.edit().putBoolean(getString(R.string.settings_simulate_key), setHelperB.isChecked()).apply();
       }
     }
 

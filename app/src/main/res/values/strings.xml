@@ -19,11 +19,11 @@
     <string name="weight_title">Content Weight</string>
     <string name="feedback_title">Strap Optimization</string>
     <string name="option_drawer_title">Features</string>
-    <string name="dashboard_graph_title"></string>
+    <string name="dashboard_graph_title">Welcome!</string>
 
     <string name="ble_fragment">BLE Fragment</string>
     <string name="feedback_fragment">Feedback Fragment</string>
-    <string name="weight_fragment">Content Fragment</string>
+    <string name="weight_fragment">Weight of Contents</string>
     <string name="dashboard_fragment">Dashboard Fragment</string>
     <string name="hello_blank_fragment">Hello blank fragment</string>
 
@@ -76,6 +76,18 @@
     <string name="settings_weightKg_key">weightInKg</string>
     <string name="settings_weightKg_default">false</string>
 
+    <string name="settings_debug_mode_id">debugMode</string>
+    <string name="settings_debug_mode_title">Developer Mode</string>
+    <string name="settings_debug_mode_summary">Activate Debug Mode</string>
+    <string name="settings_debug_mode_key">debugMode_key</string>
+    <string name="settings_debug_mode_default">false</string>
+
+    <string name="settings_simulate_id">simulation</string>
+    <string name="settings_simulate_title">Simulation Mode</string>
+    <string name="settings_simulate_summary">Simulate Equipack analytics</string>
+    <string name="settings_simulate_key">simulate_key</string>
+    <string name="settings_simulate_default">false</string>
+
     <string name="UUID_regex">[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}</string>
     <string name="writeValue_regex">[0]{1}-[12]{1}-[a-fA-F0-9]{0,38}</string>
 
@@ -83,7 +95,7 @@
     <string name="bleLogCharsSetup">bleLogCharsSetup</string>
     <string name="bleButtonStates">bleButtonStates</string>
     <string name="new_data_input_hint">y-value</string>
-    <string name="add_data_btn">Add Data Point</string>
+    <string name="add_data_btn">Optimize!</string>
 
     <string name="dashboardGraphRestore">dashboardGraphRestore</string>
     <string name="dashboardGraphSeries">dashboardGraphSeries</string>

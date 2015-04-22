@@ -3,6 +3,7 @@ package com.example.brentonchasse.myapplication;
 import android.app.Activity;
 import android.app.ActionBar;
 import android.content.Context;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.app.Fragment;
@@ -51,6 +52,10 @@ public class DashboardFragment extends Fragment {
     private Button mAddDataBtn;
     private EditText mYInput;
     private FrameLayout mArrowBox;
+    private LinearLayout mDebugLayout;
+    private boolean mDebugging;
+    private boolean mSimulate;
+    private TextView[] mDebugDataViews = new TextView[8];
     private ImageView mLUp;
     private ImageView mRUp;
     private ImageView mLDown;
@@ -84,6 +89,8 @@ public class DashboardFragment extends Fragment {
         ActionBar actionbar = getActivity().getActionBar();
         if(actionbar != null) actionbar.setTitle(getString(R.string.app_name));
         mInputDoneMeansAdd = getActivity().getSharedPreferences("userPrefs", Context.MODE_PRIVATE).getBoolean(getString(R.string.settings_inputDone_key), false);
+        mDebugging = getActivity().getSharedPreferences("userPrefs", Context.MODE_PRIVATE).getBoolean(getString(R.string.settings_debug_mode_key), false);
+        mSimulate = getActivity().getSharedPreferences("userPrefs", Context.MODE_PRIVATE).getBoolean(getString(R.string.settings_simulate_key), false);
     }
 
     @Override
@@ -106,42 +113,93 @@ public class DashboardFragment extends Fragment {
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
-        mData = new DataPoint[NUMBER_OF_DATA_POINTS];
         mGraph = (GraphView) getView().findViewById(R.id.dashBoardGraph);
         mAddDataBtn = (Button) getView().findViewById(R.id.addDataBtn);
         mYInput = (EditText) getView().findViewById(R.id.yInput);
-        mYInput.setOnKeyListener(new View.OnKeyListener() {
-            public boolean onKey(View v, int keyCode, KeyEvent event) {
-                if (mInputDoneMeansAdd) {
-                    if ((event.getAction() == KeyEvent.ACTION_DOWN) && (keyCode == KeyEvent.KEYCODE_ENTER)) {
-                        double y = getYFromInput();
-                        if (y != -Double.MAX_VALUE) {
-                            addDataPoint(y);
-                            return true;
-                        }
-                    }
-                    return false;
-                }
-                return false;
-            }
-        });
         mRUp = (ImageView) getView().findViewById(R.id.rightUpArrow);
         mLUp = (ImageView) getView().findViewById(R.id.leftUpArrow);
         mRDown = (ImageView) getView().findViewById(R.id.rightDownArrow);
         mLDown = (ImageView) getView().findViewById(R.id.leftDownArrow);
         mArrowBox = (FrameLayout) getView().findViewById(R.id.arrowLayout);
-        mRUp.setVisibility(View.GONE);
-        mLUp.setVisibility(View.GONE);
-        mRDown.setVisibility(View.GONE);
-        mLDown.setVisibility(View.GONE);
-        mArrowBox.setVisibility(View.GONE);
+        mDebugLayout = (LinearLayout) getView().findViewById(R.id.debugLayout);
+
+        int sensorsLocated = 0;
+        for (int i = mDebugLayout.getChildCount()-1; i >= 0; i--) {
+            View tmp = mDebugLayout.getChildAt(i);
+            if(tmp instanceof LinearLayout) {
+                LinearLayout tmp2 = ((LinearLayout) tmp);
+                int numChildren = tmp2.getChildCount();
+                for(int j = numChildren-1; j >=0; j--) {
+                    tmp = tmp2.getChildAt(j);
+                    if(tmp instanceof LinearLayout) {
+                        LinearLayout tmp3 = ((LinearLayout) tmp);
+                        int numChildren2 = tmp3.getChildCount();
+                        for(int k = numChildren2-1; k >=0; k--) {
+                            tmp = tmp3.getChildAt(k);
+                            if(tmp instanceof TextView && sensorsLocated < 8 && k == 1) {
+                                mDebugDataViews[sensorsLocated] = (TextView) tmp;
+                                sensorsLocated++;
+                            } else if (sensorsLocated == 7) {
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
 
-        formatGraph();
-        formatViewPort();
-        populateDataPoints();
-        restorePreExistingSeries();
-        updateDataSeries();
+        //if not in debugger mode{
+        //mDebugLayout.setVisibility(View.INVISIBLE);
+            mData = new DataPoint[NUMBER_OF_DATA_POINTS];
+
+            mYInput.setOnKeyListener(new View.OnKeyListener() {
+                public boolean onKey(View v, int keyCode, KeyEvent event) {
+                    if (mInputDoneMeansAdd) {
+                        if ((event.getAction() == KeyEvent.ACTION_DOWN) && (keyCode == KeyEvent.KEYCODE_ENTER)) {
+                            double y = getYFromInput();
+                            if (y != -Double.MAX_VALUE) {
+                                addDataPoint(y);
+                                return true;
+                            }
+                        }
+                        return false;
+                    }
+                    return false;
+                }
+            });
+
+            mRUp.setVisibility(View.INVISIBLE);
+            mLUp.setVisibility(View.INVISIBLE);
+            mRDown.setVisibility(View.INVISIBLE);
+            mLDown.setVisibility(View.INVISIBLE);
+
+
+            formatGraph();
+            formatViewPort();
+            populateDataPoints();
+            restorePreExistingSeries();
+            updateDataSeries();
+
+        //} else if in debugger mode {
+        //    mArrowBox.setVisibility(View.INVISIBLE);
+        //    mDebugLayout.setVisibility(View.VISIBLE);
+
+
+
+        //}
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (mDebugging == true) {
+            mDebugLayout.setVisibility(View.VISIBLE);
+            mArrowBox.setVisibility(View.GONE);
+        } else {
+            mDebugLayout.setVisibility(View.GONE);
+            mArrowBox.setVisibility(View.VISIBLE);
+        }
     }
 
     public void onButtonPressed(Uri uri) {
@@ -208,6 +266,38 @@ public class DashboardFragment extends Fragment {
         return mAddDataBtn;
     }
 
+    public void setAddDataBtnEnabled(final boolean bool, final String txt) {
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mAddDataBtn.setEnabled(bool);
+                if (bool) {
+                    mAddDataBtn.setBackgroundResource(R.drawable.rounded_corner);
+                } else {
+                    mAddDataBtn.setBackgroundResource(R.drawable.rounded_corner_pressed);
+                }
+                mAddDataBtn.setText(txt);
+            }
+        });
+    }
+
+    public void setAddDataBtnColor(final int background) {
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                    mAddDataBtn.setBackgroundResource(background);
+            }
+        });
+    }
+
+    public boolean isDebugging() {
+        return mDebugging;
+    }
+
+    public boolean isSimulating() {
+        return mSimulate;
+    }
+
     public double getYFromInput() {
         String input = mYInput.getText().toString();
         if (!input.equals("") && !input.equals(".") && !input.equals("+") && !input.equals("-") && !input.equals("-.") &&
@@ -233,7 +323,7 @@ public class DashboardFragment extends Fragment {
         getActivity().runOnUiThread(new Runnable() {
             @Override
             public void run() {
-               mArrowBox.setVisibility(viz);
+                mArrowBox.setVisibility(viz);
             }
         });
     }
@@ -273,6 +363,38 @@ public class DashboardFragment extends Fragment {
                 mLDown.setVisibility(viz);
             }
         });
+    }
+
+    public void setDebugMode(boolean debugMode) {
+        mDebugging = debugMode;
+    }
+
+    public void setSimulateMode(boolean simulateMode) {
+        mSimulate = simulateMode;
+    }
+
+    public void updateDebugData(final int[] data) {
+
+        for(int i = 0; i < mDebugDataViews.length; i++) {
+            final String newSensorData = Integer.toString(data[i]);
+            final int k = i;
+            getActivity().runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    mDebugDataViews[k].setText(newSensorData);
+                }
+            });
+        }
+
+        /*getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                for(int i = 0; i < mDebugDataViews.length; i++) {
+                    mDebugDataViews[i].setText(Integer.toString(data[i]));
+                }
+                //getActivity().reset
+            }
+        });*/
     }
 
 

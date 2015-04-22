@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context="com.example.brentonchasse.myapplication.DashboardFragment"
-    android:background="@android:color/background_dark">
+    android:background="#ffc0c0c0">
 
     <!-- TODO: Update blank fragment layout -->
     <ImageView
@@ -18,27 +18,261 @@
         android:orientation="vertical"
         android:weightSum="1"
         android:gravity="center_horizontal">
+
         <TextView
             android:layout_width="fill_parent"
-            android:layout_height="130dp"
+            android:layout_height="160dp"
             android:id="@+id/dashboardMessage"
             android:text="@string/dashboard_graph_title"
-            android:textColor="@android:color/holo_blue_light"
+            android:textColor="#eeeeee"
             android:textSize="30sp"
             android:textAlignment="center"
-            />
+            android:gravity="center"
+            android:layout_weight="0"
+            android:layout_margin="8dp"
+            android:background="@drawable/rounded_corner"/>
+
         <com.jjoe64.graphview.GraphView
             android:layout_width="match_parent"
-            android:layout_height="200dp"
+            android:layout_height="fill_parent"
             android:id="@+id/dashBoardGraph"
-            android:background="@android:color/transparent"/>
+            android:background="@android:color/transparent"
+            android:visibility="gone"
+            />
+
+        <LinearLayout
+            android:orientation="vertical"
+            android:layout_width="fill_parent"
+            android:layout_height="200dp"
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:textAlignment="center"
+            android:id="@+id/debugLayout"
+            android:layout_weight="0">
+
+            <LinearLayout
+                android:orientation="horizontal"
+                android:layout_width="fill_parent"
+                android:layout_height="fill_parent"
+                android:layout_weight="1"
+                android:layout_gravity="center"
+                android:gravity="center"
+                android:textAlignment="center">
+
+                <LinearLayout
+                    android:orientation="vertical"
+                    android:layout_width="fill_parent"
+                    android:layout_height="fill_parent"
+                    android:layout_weight="1">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="?android:attr/textAppearanceLarge"
+                        android:text="UL Back"
+                        android:id="@+id/ULBname"
+                        android:layout_gravity="center"
+                        android:textStyle="bold"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="?android:attr/textAppearanceSmall"
+                        android:text="00.00"
+                        android:id="@+id/ULBdata"
+                        android:layout_gravity="center"/>
+                </LinearLayout>
+
+                <LinearLayout
+                    android:orientation="vertical"
+                    android:layout_width="fill_parent"
+                    android:layout_height="fill_parent"
+                    android:layout_weight="1">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="?android:attr/textAppearanceLarge"
+                        android:text="UL Strap"
+                        android:id="@+id/ULSname"
+                        android:layout_gravity="center"
+                        android:textStyle="bold"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="?android:attr/textAppearanceSmall"
+                        android:text="00.00"
+                        android:id="@+id/ULSdata"
+                        android:layout_gravity="center"/>
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:orientation="vertical"
+                    android:layout_width="fill_parent"
+                    android:layout_height="fill_parent"
+                    android:layout_weight="1">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="?android:attr/textAppearanceLarge"
+                        android:text="UR Strap"
+                        android:id="@+id/URSname"
+                        android:layout_gravity="center"
+                        />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="?android:attr/textAppearanceSmall"
+                        android:text="00.00"
+                        android:id="@+id/URSdata"
+                        android:layout_gravity="center"/>
+                </LinearLayout>
+
+                <LinearLayout
+                    android:orientation="vertical"
+                    android:layout_width="fill_parent"
+                    android:layout_height="fill_parent"
+                    android:layout_weight="1">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="?android:attr/textAppearanceLarge"
+                        android:text="UR Back"
+                        android:id="@+id/URBname"
+                        android:layout_gravity="center"
+                        android:textStyle="bold"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="?android:attr/textAppearanceSmall"
+                        android:text="00.00"
+                        android:id="@+id/URBdata"
+                        android:layout_gravity="center"/>
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:orientation="horizontal"
+                android:layout_width="fill_parent"
+                android:layout_height="fill_parent"
+                android:layout_weight="1"
+                android:layout_gravity="center"
+                android:gravity="center"
+                android:textAlignment="center">
+
+                <LinearLayout
+                    android:orientation="vertical"
+                    android:layout_width="fill_parent"
+                    android:layout_height="fill_parent"
+                    android:layout_weight="1">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="?android:attr/textAppearanceLarge"
+                        android:text="LL Strap"
+                        android:id="@+id/LLSname"
+                        android:layout_gravity="center"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="?android:attr/textAppearanceSmall"
+                        android:text="00.00"
+                        android:id="@+id/LLSdata"
+                        android:layout_gravity="center"/>
+                </LinearLayout>
+
+                <LinearLayout
+                    android:orientation="vertical"
+                    android:layout_width="fill_parent"
+                    android:layout_height="fill_parent"
+                    android:layout_weight="1">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="?android:attr/textAppearanceLarge"
+                        android:text="LR Back"
+                        android:id="@+id/LRBname"
+                        android:layout_gravity="center"
+                        android:textStyle="bold"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="?android:attr/textAppearanceSmall"
+                        android:text="00.00"
+                        android:id="@+id/LRBdata"
+                        android:layout_gravity="center"/>
+                </LinearLayout>
+
+                <LinearLayout
+                    android:orientation="vertical"
+                    android:layout_width="fill_parent"
+                    android:layout_height="fill_parent"
+                    android:layout_weight="1">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="?android:attr/textAppearanceLarge"
+                        android:text="LR Strap"
+                        android:id="@+id/LRSname"
+                        android:layout_gravity="center"
+                        android:phoneNumber="true"
+                        android:textStyle="bold"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="?android:attr/textAppearanceSmall"
+                        android:text="00.00"
+                        android:id="@+id/LRSdat"
+                        android:layout_gravity="center"/>
+                </LinearLayout>
+
+                <LinearLayout
+                    android:orientation="vertical"
+                    android:layout_width="fill_parent"
+                    android:layout_height="fill_parent"
+                    android:layout_weight="1">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="?android:attr/textAppearanceLarge"
+                        android:text="LL Back"
+                        android:id="@+id/LLBname"
+                        android:layout_gravity="center"
+                        android:textStyle="bold"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="?android:attr/textAppearanceSmall"
+                        android:text="00.00"
+                        android:id="@+id/LLBdata"
+                        android:layout_gravity="center"/>
+                </LinearLayout>
+
+            </LinearLayout>
+        </LinearLayout>
 
         <FrameLayout
             android:orientation="horizontal"
             android:layout_width="fill_parent"
             android:layout_height="200dp"
             android:gravity="center"
-            android:id="@+id/arrowLayout">
+            android:id="@+id/arrowLayout"
+            android:layout_weight="0">
 
             <LinearLayout
                 android:orientation="horizontal"
@@ -48,17 +282,25 @@
 
                 <ImageView
                     android:id="@+id/leftUpArrow"
-                    android:layout_height="match_parent"
-                    android:layout_width="match_parent"
-                    android:rotation="-90"
+                    android:layout_height="fill_parent"
+                    android:layout_width="fill_parent"
+                    android:rotation="0"
                     android:background="@drawable/blue_arrow"
                     android:layout_weight="1"/>
 
                 <ImageView
+                    android:layout_width="fill_parent"
+                    android:layout_height="fill_parent"
+                    android:id="@+id/imageView2"
+                    android:layout_gravity="center_vertical"
+                    android:layout_weight="1"
+                    android:background="@drawable/strap"/>
+
+                <ImageView
                     android:id="@+id/rightUpArrow"
-                    android:layout_height="match_parent"
-                    android:layout_width="match_parent"
-                    android:rotation="-90"
+                    android:layout_height="fill_parent"
+                    android:layout_width="fill_parent"
+                    android:rotation="0"
                     android:background="@drawable/blue_arrow"
                     android:layout_weight="1"/>
             </LinearLayout>
@@ -71,17 +313,25 @@
 
                 <ImageView
                     android:id="@+id/leftDownArrow"
-                    android:layout_height="match_parent"
-                    android:layout_width="match_parent"
-                    android:rotation="90"
+                    android:layout_height="fill_parent"
+                    android:layout_width="fill_parent"
+                    android:rotation="180"
                     android:background="@drawable/blue_arrow"
                     android:layout_weight="1"/>
 
                 <ImageView
+                    android:layout_width="fill_parent"
+                    android:layout_height="fill_parent"
+                    android:id="@+id/imageView"
+                    android:layout_gravity="center_vertical"
+                    android:layout_weight="1"
+                    android:background="@drawable/strap"/>
+
+                <ImageView
                     android:id="@+id/rightDownArrow"
-                    android:layout_height="match_parent"
-                    android:layout_width="match_parent"
-                    android:rotation="90"
+                    android:layout_height="fill_parent"
+                    android:layout_width="fill_parent"
+                    android:rotation="180"
                     android:background="@drawable/blue_arrow"
                     android:layout_weight="1"/>
             </LinearLayout>
@@ -93,8 +343,10 @@
             android:layout_width="70dp"
             android:layout_height="35dp"
             android:layout_gravity="center"
-            android:layout_marginTop="30dp"
-            android:background="@android:color/holo_blue_light">
+            android:layout_marginTop="20dp"
+            android:background="@android:color/holo_blue_light"
+            android:layout_weight="0"
+            android:visibility="gone">
             <EditText
                 android:layout_width="0dp"
                 android:layout_height="fill_parent"
@@ -112,18 +364,36 @@
                 android:textColor="@android:color/white"
                 android:clickable="true"
                 android:background="@android:color/background_dark"
-                android:textAlignment="center"/>
+                android:textAlignment="center"
+                android:text="00.00"/>
+
         </LinearLayout>
-        <Button
-            style="?android:attr/buttonStyleSmall"
-            android:layout_width="110dp"
-            android:layout_height="wrap_content"
-            android:text="@string/add_data_btn"
-            android:id="@+id/addDataBtn"
-            android:textSize="15sp"
-            android:onClick="onFragmentClickEvent"
-            android:textColor="@android:color/white"
-            android:layout_marginTop="15dp"
-            android:clickable="true"/>
+
+        <FrameLayout
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent"
+            android:layout_weight="0">
+
+            <FrameLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="0"
+                android:layout_gravity="center">
+
+                <Button
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/add_data_btn"
+                    android:id="@+id/addDataBtn"
+                    android:textSize="15sp"
+                    android:onClick="onFragmentClickEvent"
+                    android:textColor="#eeeeee"
+                    android:clickable="true"
+                    android:layout_weight="0"
+                    android:background="@drawable/rounded_corner"
+                    />
+            </FrameLayout>
+        </FrameLayout>
+
     </LinearLayout>
 </FrameLayout>
