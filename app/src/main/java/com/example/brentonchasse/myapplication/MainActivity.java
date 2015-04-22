@@ -170,7 +170,7 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
 
         //Initialize Bluetooth adapter
         //enableBLEThenScan();
-        sendSMS("8603028885", "Equipack says 'Hello'");
+        //sendSMS("8603028885", "Equipack says 'Hello'");
     }
 
     @Override
