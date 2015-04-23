@@ -483,15 +483,24 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
 
                                         } else {
                                             //TODO: do colin's stuff
-                                            //8 unprocessed data points are stored in the int[] mSensorData
-                                            //There is a global instance if your analytics called "analytics"
+                                            //8 unprocessed data points (one for each pressure sensor) are stored in the int[] mSensorData
                                             final int[] unprocessedDataSet = mSensorData;
-                                            //Let's assume the new function is defined "public int colin(final int[] dataSetToProcess)"
-                                            int feedbackReturnValue = analytics.colin(unprocessedDataSet);
 
+                                            //There is a global instance if your analytics called "analytics"
+                                            //Let's assume the new function is defined "public int colin(final int[] dataSetToProcess)"
+                                            int[] feedbackReturnValue = analytics.colin(unprocessedDataSet);
+                                            //feedbackReturnVal should contain at least:
+                                                // at index:
+                                                        //0:    binary (t/f) should left arrow point up  (-1 = no left arrow)
+                                                        //1:    binary (t/f) should right arrow point up (-1 = no right arrow)
+                                                        //2:    some indication of state change (if you need the total weight sensor data for example)
 
                                             /**
                                              * Brenton's half-pseudo for dashboard UI updates
+                                             *
+                                             * input: int[] with indexes:
+                                             *                      0: int -> binary (1/0 = t/f): left arrow points up (1 = up, 0 = down, -1 = none)
+                                             *                      1: int -> binary (1/0 = t/f): right arrow points up (1 = up, 0 = down, -1 = none)
                                              */
                                             analyticsUIUpdater(feedbackReturnValue);
                                         }
