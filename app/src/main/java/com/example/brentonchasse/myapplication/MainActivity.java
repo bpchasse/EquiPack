@@ -491,6 +491,11 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                                             /*
                                             int feedbackReturnValue = analytics.colin(unprocessedDataSet);
                                              */
+
+                                            /**
+                                             * Brenton's half-pseudo for dashboard UI updates
+                                             */
+                                            analyticsUIUpdater(unprocessedDataSet);
                                         }
                                     }
                                     mCurrentSensorNumber = 0;
@@ -518,6 +523,56 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                 }
             }
         }
+    }
+
+    private void analyticsUIUpdater(int [] arg) {
+        final int up = 1;
+        final int down = 0;
+        final int inviz = -1;
+    /*
+        if( //only left strap up ) {
+            //lowers left side of backpack
+            DashboardFrag.setArrows(up, inviz);
+            DashboardFrag.setMessageText("Loosen left strap.");
+        } else if (// only right strap up ) {
+            //lowers right side of backpack
+            DashboardFrag.setArrows(inviz, up);
+            DashboardFrag.setMessageText("Loosen right strap.");
+        } else if (// only left strap down ) {
+            //raises left side of backpack
+            DashboardFrag.setMessageText("Tighten left strap.");
+            DashboardFrag.setArrows(down, inviz);
+        } else if (// only right strap down ) {
+            //raises right side of backpack
+            DashboardFrag.setArrows(inviz, down);
+            DashboardFrag.setMessageText("Tighten right strap.");
+        } else if (// both straps up ) {
+            //lowers the backpack's height
+            DashboardFrag.setArrows(up, up);
+            DashboardFrag.setMessageText("Loosen both straps to lower bag.");
+        } else if (// both straps down ) {
+            //raises the backpack's height
+            DashboardFrag.setArrows(down, down);
+            DashboardFrag.setMessageText("Tighten both straps to raise bag.");
+        } else if (// left strap up, right strap down ) {
+            //Shifts weight from left shoulder to right shoulder
+            DashboardFrag.setArrows(up, down);
+            DashboardFrag.setMessageText("Loosen left strap while tightening right strap.");
+        } else if (// left strap down, right strap up ) {
+            //Shifts weight from right shoulder to left shoulder
+            DashboardFrag.setArrows(down, up);
+            DashboardFrag.setMessageText("Tighten left strap while loosening right strap.");
+        } else if (// straps are symmetric ) {
+            //weight on both shoulders is correct
+            DashboardFrag.setMessageText("Straps are symmetric!");
+        } else if (// bag has reached correct height ) {
+            //optimized!
+            DashboardFrag.setMessageText("Pack's position has been optimized!");
+        } else {
+            // any failure cases need to be handled here
+            DashboardFrag.setMessageText("Analytics have failed.");
+        }
+    */
     }
 
     private void resetSensors() {

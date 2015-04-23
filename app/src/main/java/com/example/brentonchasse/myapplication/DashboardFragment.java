@@ -328,6 +328,63 @@ public class DashboardFragment extends Fragment {
         });
     }
 
+    public void setArrows(final int leftUp, final int rightUp){
+        if(leftUp > 0) {
+            if(leftUp == 0) {
+                getActivity().runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        mLDown.setVisibility(View.VISIBLE);
+                        mLUp.setVisibility(View.INVISIBLE);
+                    }
+                });
+            } else {
+                getActivity().runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        mLDown.setVisibility(View.INVISIBLE);
+                        mLUp.setVisibility(View.VISIBLE);
+                    }
+                });
+            }
+        } else {
+            getActivity().runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    mLDown.setVisibility(View.INVISIBLE);
+                    mLUp.setVisibility(View.INVISIBLE);
+                }
+            });
+        }
+        if(rightUp > 0) {
+            if(rightUp == 0) {
+                getActivity().runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        mLDown.setVisibility(View.VISIBLE);
+                        mLUp.setVisibility(View.INVISIBLE);
+                    }
+                });
+            } else {
+                getActivity().runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        mLDown.setVisibility(View.INVISIBLE);
+                        mLUp.setVisibility(View.VISIBLE);
+                    }
+                });
+            }
+        } else {
+            getActivity().runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    mRDown.setVisibility(View.INVISIBLE);
+                    mRUp.setVisibility(View.INVISIBLE);
+                }
+            });
+        }
+    }
+
     public void setRightUpArrowVisibility(final int visibility) {
         final int viz = (visibility == View.GONE) ? View.GONE : (visibility == View.VISIBLE) ? View.VISIBLE : View.INVISIBLE;
         getActivity().runOnUiThread(new Runnable() {
