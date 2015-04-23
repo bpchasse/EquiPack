@@ -390,15 +390,14 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
         String hexVal = bytesToHex(byteVal);
 
         if(hexVal.charAt(0) == 'A') {
-            double sensor1 = ( (double)( ( ( (int)byteVal[1] & 0xFF ) * 256 ) + ( (int)byteVal[2] & 0xFF ) ) * 3.3f ) / 4096f;
-            double sensor2 = ( (double)( ( ( (int)byteVal[3] & 0xFF ) * 256 ) + ( (int)byteVal[4] & 0xFF ) ) * 3.3f ) / 4096f;
-
             if (hexVal.charAt(1) == '1') {
                 logBle("onCharacteristicChanged:\n                   Characteristic UUID: " + characteristic.getUuid()
                         + "\n                   Return OpCode: 0xA1 == Test"
                         + "\n                   Return Data: "
                         + hexVal.substring(2, hexVal.length()) + "\n");
             } else if (hexVal.charAt(1) == '2') {
+                double sensor1 = ( (double)( ( ( (int)byteVal[1] & 0xFF ) * 256 ) + ( (int)byteVal[2] & 0xFF ) ) * 3.3f ) / 4096f;
+                double sensor2 = ( (double)( ( ( (int)byteVal[3] & 0xFF ) * 256 ) + ( (int)byteVal[4] & 0xFF ) ) * 3.3f ) / 4096f;
                 logSet("onCharacteristicChanged:\n                   Characteristic UUID: " + characteristic.getUuid()
                         + "\n                   Return OpCode: 0xA2 == Read ADCs"
                         + "\n                   Return Data:"
@@ -408,51 +407,54 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                     byte[] data = hexStringToByteArray("0200000000000000000000000000000000000000");
                     setCharacteristic(mCharacteristicWrite, data);
                 }
-            } else if (hexVal.charAt(1) == '3' /*&& waitingForPower*/) {
-                //waitingForPower = false;
+            } else if (hexVal.charAt(1) == '3') {
                 setCharacteristic(mCharacteristicWrite, cGetWeightData);
                 WeightFrag.setGetWeightBtnTxt("EquiPack Awake!");
             } else if (hexVal.charAt(1) == '4' && hexVal.charAt(3) == '8') {
                 getWeightHelper(byteVal);
             } else if (hexVal.charAt(1) == '4') {
-                if(SCANNING_MODE.equals("getSensors")) {
-                    //If the current sensor number matches the sensor number that we just received data for
-
-                    //get the sensor data from byteVal
-                    int sensorData = ( ( (int)byteVal[1] << 256) & 0xFF ) + ( ( (int)byteVal[2] ) & 0xFF );
-
-                    try {
-                        getSensorLock.acquire();
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                    //put the sensor data in the array of data received
-                    mSensorData[mCurrentSensorNumber] = sensorData;
-                    getSensorLock.release();
-
-                    if(mCurrentSensorNumber == 7){
-                        //handleSensorPacket is handling it's own synchronization (of mCurrentSensorNumber) within a spawned thread
-                        handleSensorPacket(byteVal);
-                    } else {
-                        try {
-                            getSensorLock.acquire();
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                        mCurrentSensorNumber++;
-                        getSensorLock.release();
-                    }
-                    try {
-                        getSensorLock.acquire();
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                    //always do this, mCurrentSensorNumber is the same as before(if received data was for wrong sensor)
-                        //Otherwise mCurrentSensorNumber has been changed to the next sensor number that we need to get
-                    setCharacteristic(mCharacteristicWrite, cSensor[mCurrentSensorNumber]);
-                    getSensorLock.release();
-                }
+                getSensorHelper(byteVal);
             }
+        }
+    }
+
+    private void getSensorHelper(byte[] byteVal) {
+        if(SCANNING_MODE.equals("getSensors")) {
+            //If the current sensor number matches the sensor number that we just received data for
+
+            //get the sensor data from byteVal
+            int sensorData = ( ( (int)byteVal[1] << 256) & 0xFF ) + ( ( (int)byteVal[2] ) & 0xFF );
+
+            try {
+                getSensorLock.acquire();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            //put the sensor data in the array of data received
+            mSensorData[mCurrentSensorNumber] = sensorData;
+            getSensorLock.release();
+
+            if(mCurrentSensorNumber == 7){
+                //handleSensorPacket is handling it's own synchronization (of mCurrentSensorNumber) within a spawned thread
+                handleSensorPacket(byteVal);
+            } else {
+                try {
+                    getSensorLock.acquire();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                mCurrentSensorNumber++;
+                getSensorLock.release();
+            }
+            try {
+                getSensorLock.acquire();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            //always do this, mCurrentSensorNumber is the same as before(if received data was for wrong sensor)
+            //Otherwise mCurrentSensorNumber has been changed to the next sensor number that we need to get
+            setCharacteristic(mCharacteristicWrite, cSensor[mCurrentSensorNumber]);
+            getSensorLock.release();
         }
     }
 
@@ -521,53 +523,59 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
     }
 
     private void analyticsUIUpdater(int [] arg) {
-        final int up = 1;
-        final int down = 0;
-        final int inviz = -1;
-    /*
-        if( //only left strap up ) {
+        //args[0] = left arrow pointing up?
+        //args[1] = right arrow pointing up?
+
+        //if both arg[0] and arg[1] == -1 means straps are symmetric
+        //if both arg[0] and arg[1] == -2 means analytics have completed and pack is optimal
+
+        //Any possible combination of integer values for arg[0] and arg[1] will be cause a fail case
+
+        DashboardFrag.setArrows(arg[0], arg[1]);
+
+        if(arg[0] == 1 && arg[1] == -1) {
             //lowers left side of backpack
-            DashboardFrag.setArrows(up, inviz);
+            //DashboardFrag.setArrows(up, inviz);
             DashboardFrag.setMessageText("Loosen left strap.");
-        } else if (// only right strap up ) {
+        } else if (arg[0] == -1 && arg[1] == 1) {
             //lowers right side of backpack
-            DashboardFrag.setArrows(inviz, up);
+            //DashboardFrag.setArrows(inviz, up);
             DashboardFrag.setMessageText("Loosen right strap.");
-        } else if (// only left strap down ) {
+        } else if (arg[0] == 0 && arg[1] == -1) {
             //raises left side of backpack
+            //DashboardFrag.setArrows(down, inviz);
             DashboardFrag.setMessageText("Tighten left strap.");
-            DashboardFrag.setArrows(down, inviz);
-        } else if (// only right strap down ) {
+        } else if (arg[0] == -1 && arg[1] == 0) {
             //raises right side of backpack
-            DashboardFrag.setArrows(inviz, down);
+            //DashboardFrag.setArrows(inviz, down);
             DashboardFrag.setMessageText("Tighten right strap.");
-        } else if (// both straps up ) {
+        } else if (arg[0] == 1 && arg[1] == 1) {
             //lowers the backpack's height
-            DashboardFrag.setArrows(up, up);
+            //DashboardFrag.setArrows(up, up);
             DashboardFrag.setMessageText("Loosen both straps to lower bag.");
-        } else if (// both straps down ) {
+        } else if (arg[0] == -1 && arg[1] == -1) {
             //raises the backpack's height
-            DashboardFrag.setArrows(down, down);
+            //DashboardFrag.setArrows(down, down);
             DashboardFrag.setMessageText("Tighten both straps to raise bag.");
-        } else if (// left strap up, right strap down ) {
+        } else if (arg[0] == 1 && arg[1] == 0) {
             //Shifts weight from left shoulder to right shoulder
-            DashboardFrag.setArrows(up, down);
+            //DashboardFrag.setArrows(up, down);
             DashboardFrag.setMessageText("Loosen left strap while tightening right strap.");
-        } else if (// left strap down, right strap up ) {
+        } else if (arg[0] == 0 && arg[1] == 1) {
             //Shifts weight from right shoulder to left shoulder
-            DashboardFrag.setArrows(down, up);
+            //DashboardFrag.setArrows(down, up);
             DashboardFrag.setMessageText("Tighten left strap while loosening right strap.");
-        } else if (// straps are symmetric ) {
+        } else if (arg[0] == -1 && arg[1] == -1/*TODO: assuming this is how it might work?*/) {
             //weight on both shoulders is correct
             DashboardFrag.setMessageText("Straps are symmetric!");
-        } else if (// bag has reached correct height ) {
+        } else if (arg[0] == -2 && arg[1] == -2/*TODO: assuming this is how it might work?*/) {
             //optimized!
             DashboardFrag.setMessageText("Pack's position has been optimized!");
         } else {
             // any failure cases need to be handled here
             DashboardFrag.setMessageText("Analytics have failed.");
         }
-    */
+
     }
 
     private void getWeightHelper(byte[] byteVal) {
@@ -590,12 +598,6 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
         }
     }
 
-    private void resetSensors() {
-        mCurrentSensorNumber = 0;
-        //set the array back to its unfilled initial state
-        for(int i = 0; i < mSensorData.length; i++)
-            mSensorData[i] = -1;
-    }
     private void disconnectedHandler(Object obj) {
         mConnected = false;
         if (SCANNING_MODE.equals("getWeight") || WeightFrag.getGetWeightBtn() != null){
@@ -851,7 +853,6 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
             if (!DashboardFrag.isDebugging()) {
                 DashboardFrag.setAddDataBtnEnabled(false, "Processing");
                 DashboardFrag.setAddDataBtnColor(R.drawable.rounded_corner_pressed);
-                //TODO: this code shows that the debugger ui can be updated
                 if (DashboardFrag.isSimulating()) {
                     new Thread(new Runnable() {
                         @Override
@@ -986,8 +987,8 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
             characteristic.setValue(data);
             boolean writeSent = mBluetoothGatt.writeCharacteristic(characteristic);
 
-            if (writeSent) logBle("setCharacteristic: Asynchronous write has been successfully called.\n");
-            else logBle("setCharacteristic: Asynchronous write was NOT successfully called.\n");
+            //if (writeSent) logBle("setCharacteristic: Asynchronous write has been successfully called.\n");
+            //else logBle("setCharacteristic: Asynchronous write was NOT successfully called.\n");
         }
     }
 
@@ -996,31 +997,31 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                 && isCharacterisiticNotifiable(characteristic)) {
             if (enabled) {
                 //Enable local notifications
-                logBle("setNotifications: Enabling local notifications\n");
+                //logBle("setNotifications: Enabling local notifications\n");
                 mBluetoothGatt.setCharacteristicNotification(characteristic, true);
 
                 //Enabled remote notifications
-                logBle("setNotifications: Enabling remote notifications for descriptor:\n               " +
-                        "00002902-0000-1000-8000-00805f9b34fb\n");
+                //logBle("setNotifications: Enabling remote notifications for descriptor:\n               " +
+                        //"00002902-0000-1000-8000-00805f9b34fb\n");
                 BluetoothGattDescriptor desc = characteristic.getDescriptor(
                         UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"));
                 desc.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
-                logBle("setNotifications: Writing changes made to remote descriptor:\n                " +
-                        "00002902-0000-1000-8000-00805f9b34fb\n");
+                //logBle("setNotifications: Writing changes made to remote descriptor:\n                " +
+                       // "00002902-0000-1000-8000-00805f9b34fb\n");
                 mBluetoothGatt.writeDescriptor(desc);
             } else {
                 //Disable local notifications
-                logBle("setNotifications: Disabling local notifications\n");
+                //logBle("setNotifications: Disabling local notifications\n");
                 mBluetoothGatt.setCharacteristicNotification(characteristic, false);
 
                 //Disable remote notifications
-                logBle("setNotifications: Disabling remote notifications for descriptor:\n               " +
-                        "00002902-0000-1000-8000-00805f9b34fb\n");
+                //logBle("setNotifications: Disabling remote notifications for descriptor:\n               " +
+                       // "00002902-0000-1000-8000-00805f9b34fb\n");
                 BluetoothGattDescriptor desc = characteristic.getDescriptor(
                         UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"));
                 desc.setValue(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE);
-                logBle("setNotifications: Writing changes made to remote descriptor:\n                " +
-                        "00002902-0000-1000-8000-00805f9b34fb\n");
+                //logBle("setNotifications: Writing changes made to remote descriptor:\n                " +
+                       // "00002902-0000-1000-8000-00805f9b34fb\n");
                 mBluetoothGatt.writeDescriptor(desc);
             }
 
@@ -1033,27 +1034,27 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                     + "\n                       Change in preferences.\n");
             return;
         }
-        logBle("checkCharacteristicProperties(): Checking " + "\"" + name + "\"" + " characteristic Properties...\n");
+        //logBle("checkCharacteristicProperties(): Checking " + "\"" + name + "\"" + " characteristic Properties...\n");
 
         if (isCharacteristicWriteable(characteristic)) {
-            logBle("checkCharacteristicProperties():       Writeable -> true\n");
+            //logBle("checkCharacteristicProperties():       Writeable -> true\n");
             mCharacteristicPermissions[0] = true;
         } else {
-            logBle("checkCharacteristicProperties():       Writeable -> false\n");
+           // logBle("checkCharacteristicProperties():       Writeable -> false\n");
             mCharacteristicPermissions[0] = false;
         }
         if (isCharacteristicReadable(characteristic)) {
-            logBle("checkCharacteristicProperties():       Readable -> true\n");
+         //   logBle("checkCharacteristicProperties():       Readable -> true\n");
             mCharacteristicPermissions[1] = true;
         } else {
-            logBle("checkCharacteristicProperties():       Readable -> false\n");
+          //  logBle("checkCharacteristicProperties():       Readable -> false\n");
             mCharacteristicPermissions[1] = false;
         }
         if (isCharacterisiticNotifiable(characteristic)) {
-            logBle("checkCharacteristicProperties():       Notifiable -> true\n");
+          //  logBle("checkCharacteristicProperties():       Notifiable -> true\n");
             mCharacteristicPermissions[2] = true;
         } else {
-            logBle("checkCharacteristicProperties():       Notifiable -> false\n");
+         //   logBle("checkCharacteristicProperties():       Notifiable -> false\n");
             mCharacteristicPermissions[2] = false;
         }
     }
