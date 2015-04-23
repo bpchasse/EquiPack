@@ -487,15 +487,13 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                                             //There is a global instance if your analytics called "analytics"
                                             final int[] unprocessedDataSet = mSensorData;
                                             //Let's assume the new function is defined "public int colin(final int[] dataSetToProcess)"
-
-                                            /*
                                             int feedbackReturnValue = analytics.colin(unprocessedDataSet);
-                                             */
+
 
                                             /**
                                              * Brenton's half-pseudo for dashboard UI updates
                                              */
-                                            analyticsUIUpdater(unprocessedDataSet);
+                                            analyticsUIUpdater(feedbackReturnValue);
                                         }
                                     }
                                     mCurrentSensorNumber = 0;
