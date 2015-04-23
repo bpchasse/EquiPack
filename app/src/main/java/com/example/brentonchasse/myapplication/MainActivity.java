@@ -413,111 +413,35 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                 setCharacteristic(mCharacteristicWrite, cGetWeightData);
                 WeightFrag.setGetWeightBtnTxt("EquiPack Awake!");
             } else if (hexVal.charAt(1) == '4' && hexVal.charAt(3) == '8') {
-                double average = ( (double)( ( ( (int)byteVal[1] & 0xFF ) * 256 ) + ( (int)byteVal[2] & 0xFF ) ) * 3.3f ) / 4096f;
-                double variance = ( (double)( ( ( (int)byteVal[3] & 0xFF ) * 256 ) + ( (int)byteVal[4] & 0xFF ) ) * 3.3f ) / 4096f;
-
-                handleGettingWeight(average);
-
-                if(SCANNING_MODE.equals("getWeight")) {
-                    setCharacteristic(mCharacteristicWrite, cGetWeightData);
-                    //Set button back to "Running!" text
-                    WeightFrag.enableGetWeightBtn(true);
-                    WeightFrag.getGetWeightBtn().setBackground(getResources().getDrawable(R.drawable.rounded_corner));
-                    WeightFrag.setGetWeightBtnTxt("Running!");
-                } else {
-                    WeightFrag.enableGetWeightBtn(true);
-                    WeightFrag.getGetWeightBtn().setBackground(getResources().getDrawable(R.drawable.rounded_corner));
-                    //Set button back to default text
-                    WeightFrag.setGetWeightBtnTxt(getString(R.string.get_weight_button_text));
-                }
+                getWeightHelper(byteVal);
             } else if (hexVal.charAt(1) == '4') {
                 if(SCANNING_MODE.equals("getSensors")) {
                     //If the current sensor number matches the sensor number that we just received data for
 
-                        //get the sensor data from byteVal
-                        int sensorData = ( ( (int)byteVal[1] << 256) & 0xFF ) + ( ( (int)byteVal[2] ) & 0xFF );
+                    //get the sensor data from byteVal
+                    int sensorData = ( ( (int)byteVal[1] << 256) & 0xFF ) + ( ( (int)byteVal[2] ) & 0xFF );
 
+                    try {
+                        getSensorLock.acquire();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    //put the sensor data in the array of data received
+                    mSensorData[mCurrentSensorNumber] = sensorData;
+                    getSensorLock.release();
+
+                    if(mCurrentSensorNumber == 7){
+                        //handleSensorPacket is handling it's own synchronization (of mCurrentSensorNumber) within a spawned thread
+                        handleSensorPacket(byteVal);
+                    } else {
                         try {
                             getSensorLock.acquire();
                         } catch (InterruptedException e) {
                             e.printStackTrace();
                         }
-                        //put the sensor data in the array of data received
-                        final int currNum = mCurrentSensorNumber;
-                        mSensorData[mCurrentSensorNumber] = sensorData;
+                        mCurrentSensorNumber++;
                         getSensorLock.release();
-
-                        if(mCurrentSensorNumber == 7){
-                            //send the array of data to the analytics
-                            new Thread ( new Runnable() {
-                                @Override
-                                public void run() {
-                                    try {
-                                        getSensorLock.acquire();
-                                    } catch (InterruptedException e) {
-                                        e.printStackTrace();
-                                    }
-
-                                    int curr = currNum;
-
-                                    if(DashboardFrag.isSimulating()) {
-                                        analytics.testWeightAnalytics();
-                                        analytics.resetAnalyticsVariables();
-                                    } else {
-
-                                        if(DashboardFrag.isDebugging()) {
-                                            boolean noData = true;
-                                            for (int m = 0; m < mSensorData.length; m++) {
-                                                if(mSensorData[m] != -1) {
-                                                    noData = false;
-                                                    break;
-                                                }
-                                            }
-                                            if (noData) {
-                                                final int[] data = {1, 2, 3, 4, 5, 6, 7, 8};
-                                                DashboardFrag.updateDebugData(data);
-                                            } else {
-                                                final int[] unprocessedDataSet = mSensorData;
-                                                DashboardFrag.updateDebugData(unprocessedDataSet);
-                                            }
-
-                                        } else {
-                                            //TODO: do colin's stuff
-                                            //8 unprocessed data points (one for each pressure sensor) are stored in the int[] mSensorData
-                                            final int[] unprocessedDataSet = mSensorData;
-
-                                            //There is a global instance if your analytics called "analytics"
-                                            //Let's assume the new function is defined "public int colin(final int[] dataSetToProcess)"
-                                            int[] feedbackReturnValue = analytics.colin(unprocessedDataSet);
-                                            //feedbackReturnVal should contain at least:
-                                                // at index:
-                                                        //0:    binary (t/f) should left arrow point up  (-1 = no left arrow)
-                                                        //1:    binary (t/f) should right arrow point up (-1 = no right arrow)
-                                                        //2:    some indication of state change (if you need the total weight sensor data for example)
-
-                                            /**
-                                             * Brenton's half-pseudo for dashboard UI updates
-                                             *
-                                             * input: int[] with indexes:
-                                             *                      0: int -> binary (1/0 = t/f): left arrow points up (1 = up, 0 = down, -1 = none)
-                                             *                      1: int -> binary (1/0 = t/f): right arrow points up (1 = up, 0 = down, -1 = none)
-                                             */
-                                            analyticsUIUpdater(feedbackReturnValue);
-                                        }
-                                    }
-                                    mCurrentSensorNumber = 0;
-                                    getSensorLock.release();
-                                }
-                            }).start();
-                        } else {
-                            try {
-                                getSensorLock.acquire();
-                            } catch (InterruptedException e) {
-                                e.printStackTrace();
-                            }
-                            mCurrentSensorNumber++;
-                            getSensorLock.release();
-                        }
+                    }
                     try {
                         getSensorLock.acquire();
                     } catch (InterruptedException e) {
@@ -530,6 +454,70 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                 }
             }
         }
+    }
+
+    private void sensorDataDevHelper(){
+        boolean noData = true;
+        for (int m = 0; m < mSensorData.length; m++) {
+            if(mSensorData[m] != -1) {
+                noData = false;
+                break;
+            }
+        }
+        if (noData) {
+            final int[] data = {1, 2, 3, 4, 5, 6, 7, 8};
+            DashboardFrag.updateDebugData(data);
+        } else {
+            final int[] unprocessedDataSet = mSensorData;
+            DashboardFrag.updateDebugData(unprocessedDataSet);
+        }
+    }
+
+    private void handleSensorPacket(byte[] byteVal) {
+        //send the array of data to the analytics
+        new Thread ( new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    getSensorLock.acquire();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+
+                if(DashboardFrag.isSimulating()) {
+                    analytics.testWeightAnalytics();
+                    analytics.resetAnalyticsVariables();
+                } else {
+                    if(DashboardFrag.isDebugging()) {
+                        sensorDataDevHelper();
+                    } else {
+                        //TODO: do colin's stuff
+                        //8 unprocessed data points (one for each pressure sensor) are stored in the int[] mSensorData
+                        final int[] unprocessedDataSet = mSensorData;
+
+                        //There is a global instance if your analytics called "analytics"
+                        //Let's assume the new function is defined "public int colin(final int[] dataSetToProcess)"
+                        int[] feedbackReturnValue = analytics.colin(unprocessedDataSet);
+                        //feedbackReturnVal should contain at least:
+                        // at index:
+                        //0:    binary (t/f) should left arrow point up  (-1 = no left arrow)
+                        //1:    binary (t/f) should right arrow point up (-1 = no right arrow)
+                        //2:    some indication of state change (if you need the total weight sensor data for example)
+
+                        /**
+                         * Brenton's half-pseudo for dashboard UI updates
+                         *
+                         * input: int[] with indexes:
+                         *                      0: int -> binary (1/0 = t/f): left arrow points up (1 = up, 0 = down, -1 = none)
+                         *                      1: int -> binary (1/0 = t/f): right arrow points up (1 = up, 0 = down, -1 = none)
+                         */
+                        analyticsUIUpdater(feedbackReturnValue);
+                    }
+                }
+                mCurrentSensorNumber = 0;
+                getSensorLock.release();
+            }
+        }).start();
     }
 
     private void analyticsUIUpdater(int [] arg) {
@@ -580,6 +568,26 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
             DashboardFrag.setMessageText("Analytics have failed.");
         }
     */
+    }
+
+    private void getWeightHelper(byte[] byteVal) {
+        double average = ( (double)( ( ( (int)byteVal[1] & 0xFF ) * 256 ) + ( (int)byteVal[2] & 0xFF ) ) * 3.3f ) / 4096f;
+        double variance = ( (double)( ( ( (int)byteVal[3] & 0xFF ) * 256 ) + ( (int)byteVal[4] & 0xFF ) ) * 3.3f ) / 4096f;
+
+        handleGettingWeight(average);
+
+        if(SCANNING_MODE.equals("getWeight")) {
+            setCharacteristic(mCharacteristicWrite, cGetWeightData);
+            //Set button back to "Running!" text
+            WeightFrag.enableGetWeightBtn(true);
+            WeightFrag.getGetWeightBtn().setBackground(getResources().getDrawable(R.drawable.rounded_corner));
+            WeightFrag.setGetWeightBtnTxt("Running!");
+        } else {
+            WeightFrag.enableGetWeightBtn(true);
+            WeightFrag.getGetWeightBtn().setBackground(getResources().getDrawable(R.drawable.rounded_corner));
+            //Set button back to default text
+            WeightFrag.setGetWeightBtnTxt(getString(R.string.get_weight_button_text));
+        }
     }
 
     private void resetSensors() {
