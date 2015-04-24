@@ -495,16 +495,15 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
             final int[] data = {1, 2, 3, 4, 5, 6, 7, 8};
             DashboardFrag.updateDebugData(data);
         } else {
-            final int[] unprocessedDataSet = mSensorData;
-            /*final int[] unprocessedDataSet = new int[mSensorData.length];
-            unprocessedDataSet[0] = mSensorData[0];
-            unprocessedDataSet[1] = mSensorData[1];
-            unprocessedDataSet[2] = mSensorData[0];
-            unprocessedDataSet[3] = mSensorData[0];
-            unprocessedDataSet[4] = mSensorData[0];
-            unprocessedDataSet[5] = mSensorData[0];
+            final int[] unprocessedDataSet = new int[mSensorData.length];
+            unprocessedDataSet[0] = mSensorData[5];
+            unprocessedDataSet[1] = mSensorData[3];
+            unprocessedDataSet[2] = mSensorData[1];
+            unprocessedDataSet[3] = mSensorData[2];
+            unprocessedDataSet[4] = mSensorData[6];
+            unprocessedDataSet[5] = mSensorData[7];
             unprocessedDataSet[6] = mSensorData[0];
-            unprocessedDataSet[7] = mSensorData[0];*/
+            unprocessedDataSet[7] = mSensorData[4];
             DashboardFrag.updateDebugData(unprocessedDataSet);
         }
     }

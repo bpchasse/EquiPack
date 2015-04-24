@@ -70,7 +70,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textAppearance="?android:attr/textAppearanceLarge"
-                        android:text="S7"
+                        android:text="UL Strap"
                         android:id="@+id/ULBname"
                         android:layout_gravity="center"
                         android:textStyle="bold"/>
@@ -88,13 +88,14 @@
                     android:orientation="vertical"
                     android:layout_width="fill_parent"
                     android:layout_height="fill_parent"
-                    android:layout_weight="1">
+                    android:layout_weight="1"
+                    android:layout_marginRight="10dp">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textAppearance="?android:attr/textAppearanceLarge"
-                        android:text="S6"
+                        android:text="UR Strap"
                         android:id="@+id/ULSname"
                         android:layout_gravity="center"
                         android:textStyle="bold"/>
@@ -109,6 +110,12 @@
 
                 </LinearLayout>
 
+                <FrameLayout
+                    android:layout_width="fill_parent"
+                    android:layout_height="fill_parent"
+                    android:layout_weight="1">
+                </FrameLayout>
+
                 <LinearLayout
                     android:orientation="vertical"
                     android:layout_width="fill_parent"
@@ -119,7 +126,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textAppearance="?android:attr/textAppearanceLarge"
-                        android:text="S5"
+                        android:text="UL Back"
                         android:id="@+id/URSname"
                         android:layout_gravity="center"
                         android:textStyle="bold"/>
@@ -143,7 +150,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textAppearance="?android:attr/textAppearanceLarge"
-                        android:text="S4"
+                        android:text="UR Back"
                         android:id="@+id/URBname"
                         android:layout_gravity="center"
                         android:textStyle="bold"/>
@@ -178,7 +185,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textAppearance="?android:attr/textAppearanceLarge"
-                        android:text="S3"
+                        android:text="LL Strap"
                         android:id="@+id/LLSname"
                         android:layout_gravity="center"
                         android:textStyle="bold"/>
@@ -202,7 +209,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textAppearance="?android:attr/textAppearanceLarge"
-                        android:text="S2"
+                        android:text="LR Strap"
                         android:id="@+id/LRBname"
                         android:layout_gravity="center"
                         android:textStyle="bold"/>
@@ -216,6 +223,11 @@
                         android:layout_gravity="center"/>
                 </LinearLayout>
 
+                <FrameLayout
+                    android:layout_width="fill_parent"
+                    android:layout_height="fill_parent"
+                    android:layout_weight="1"/>
+
                 <LinearLayout
                     android:orientation="vertical"
                     android:layout_width="fill_parent"
@@ -226,7 +238,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textAppearance="?android:attr/textAppearanceLarge"
-                        android:text="S1"
+                        android:text="LL Back"
                         android:id="@+id/LRSname"
                         android:layout_gravity="center"
                         android:phoneNumber="true"
@@ -251,7 +263,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textAppearance="?android:attr/textAppearanceLarge"
-                        android:text="S0"
+                        android:text="LR Back"
                         android:id="@+id/LLBname"
                         android:layout_gravity="center"
                         android:textStyle="bold"/>
