@@ -50,6 +50,7 @@ public class DashboardFragment extends Fragment {
     private Bundle savedState;
     private GraphView mGraph;
     private Button mAddDataBtn;
+    private Button mCalBtn;
     private EditText mYInput;
     private FrameLayout mArrowBox;
     private LinearLayout mDebugLayout;
@@ -115,6 +116,7 @@ public class DashboardFragment extends Fragment {
         super.onActivityCreated(savedInstanceState);
         mGraph = (GraphView) getView().findViewById(R.id.dashBoardGraph);
         mAddDataBtn = (Button) getView().findViewById(R.id.addDataBtn);
+        mCalBtn = (Button) getView().findViewById(R.id.dashCalBtn);
         mYInput = (EditText) getView().findViewById(R.id.yInput);
         mRUp = (ImageView) getView().findViewById(R.id.rightUpArrow);
         mLUp = (ImageView) getView().findViewById(R.id.leftUpArrow);
@@ -266,6 +268,10 @@ public class DashboardFragment extends Fragment {
         return mAddDataBtn;
     }
 
+    public Button getCalBtn() {
+        return mCalBtn;
+    }
+
     public void setAddDataBtnEnabled(final boolean bool, final String txt) {
         getActivity().runOnUiThread(new Runnable() {
             @Override
@@ -286,6 +292,19 @@ public class DashboardFragment extends Fragment {
             @Override
             public void run() {
                     mAddDataBtn.setBackgroundResource(background);
+            }
+        });
+    }
+
+    public void setCalBtnPressed(final boolean bool) {
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (bool) {
+                    mCalBtn.setBackgroundResource(R.drawable.rounded_corner_pressed);
+                } else {
+                    mCalBtn.setBackgroundResource(R.drawable.rounded_corner);
+                }
             }
         });
     }

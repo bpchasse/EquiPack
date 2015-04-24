@@ -4,7 +4,6 @@ import android.opengl.Visibility;
 import android.view.View;
 import android.widget.Toast;
 
-import com.jjoe64.graphview.GraphView;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
@@ -36,10 +35,21 @@ public class EquipackAnalytics {
     public static double Zero_Weight = 0.000140;
     public static double Threshold = 0.1;
 
+
     public double Backl = -1;
     public double Strapl = -1;
     public double high = 0;
     public int stage = 0;
+    public double[] Init;
+    public boolean Initialized = false;
+
+    public void Calibrate_Initial(double packet[]){
+        Init = new double[8];
+        for(int i=0;i<8;i++){
+            Init[i] = packet[i];
+        }
+    }
+
 
     public EquipackAnalytics(DashboardFragment frag) {
         DashboardFrag = frag;
@@ -93,28 +103,7 @@ public class EquipackAnalytics {
     /**
      * Weight Analytics
      */
-    public  double[] seperator(int Packet[], double array[][]) {
-        double[] LRArray;
-        LRArray = new double[10];
-        int Buffer_Size = Cycles*Cycle_Size*Sampling_Freq;
-        for (int j = 0; j < Packet_Size; j++) {
-            for (int i = Buffer_Size; i >1; i--) {
-                array[i][j] = array[i-1][j];
-                array[0][j] = Packet[j];
-            }
-            for(int n = 0; n<9; n++)
-                LRArray = Linear_Regression_Slope(n,0, array );
-        }
-        return LRArray;
-    }
 
-    public double[][] Linearizer(double array[][]){
-        double LRArray[][];
-        LRArray = new double[10][2];
-        for(int n = 0; n<9; n++)
-            LRArray[n] = Linear_Regression_Slope(n,0, array );
-        return LRArray;
-    }
 
     public double[] Linear_Regression_Slope(int Sensor, int Cycle, double array[][])	{
         double sumy = 0;
@@ -147,37 +136,42 @@ public class EquipackAnalytics {
         return out;
     }
 
-    public double Weight_Analytics_LR( double[][] LRArray){
-        double [][] LArray = LRArray.clone();
-        double LUStrap = LArray[LUS][0];
-        double LDStrap = LArray[LDS][0];
-        double RUStrap =LArray[RUS][0];
-        double RDStrap = LArray[RDS][0];
+    public double Weight_Analytics_LR( double[] LRArray){
+        //Return 0 : even sensors, go to next Stage
+        //Return 1 : Loosen Right
+        //Return -1: Loosen Left
+        //Return 2: Error, Retest
+        double [] LArray = LRArray.clone();
+        double LUStrap = LArray[LUS]-Init[LUS];
+        double LDStrap = LArray[LDS]-Init[LDS];
+        double RUStrap = LArray[RUS]-Init[RUS];
+        double RDStrap = LArray[RDS]-Init[RDS];
         //average upper and lower
         double L = (LUStrap + LDStrap)/2;
         double R = (RUStrap + RDStrap)/2;
-        if((Math.abs(LArray[LUS][1]+LArray[LUS][1])>0.05)||(Math.abs(LArray[LUS][1]+LArray[LUS][1])>0.05)){
-            return -1*Double.MAX_VALUE;
-        }
+        //if((Math.abs(LArray[LUS][1]+LArray[LUS][1])>0.05)||(Math.abs(LArray[LUS][1]+LArray[LUS][1])>0.05)){
+        //    return -1*Double.MAX_VALUE;
+        //}
+        //Error testing, Obsolete
 
         if(Math.abs(R-L) < Threshold){
             return 0;
         }
         else{
-            return (R-L);
+            return (Math.abs(R-L)/(R-L));
         }
     }
 
-    public double getWeight(double LRArray[][]){
-        return (LRArray[LOAD][0]-Zero_Weight)/(2*0.000019*1665);
+    public double getWeight(double LRArray[]){
+        return (LRArray[LOAD]-Zero_Weight)/(2*0.000019*1665);
     }
 
-    public double Weight_Analytics_UD(double[][] LArray, double high, double Backlast, double Straplast){
-        double [][] LRArray = LArray.clone();
+    public double Weight_Analytics_UD(double[] LArray){
+        double [] LRArray = LArray.clone();
         if (high == -1) {
 
-            double UStrap = (LRArray[LUS][0] + LRArray[RUS][0]) / 2;
-            double DStrap = (LRArray[LDS][0] + LRArray[RDS][0]) / 2;
+            double UStrap = (LRArray[LUS] + LRArray[RUS]) / 2;
+            double DStrap = (LRArray[LDS] + LRArray[RDS]) / 2;
             high = 0;
             if (UStrap > DStrap) {
                 high = 1;
@@ -185,63 +179,118 @@ public class EquipackAnalytics {
 
         }
         double pullStraps = 0;
-        double Back = (LRArray[LDB][0] + LRArray[RDB][0] + LRArray[RUB][0] + LRArray[LUB][0]) / 4;
-        double Strap = (LRArray[LUS][0] + LRArray[RUS][0] / 2 + LRArray[LDS][0] + LRArray[RDS][0]) / 4;
-        if ((Straplast >= Straplast) && (Back < Backlast) || (Backlast < 0)) {
+        double Back = (LRArray[LDB] + LRArray[RDB] + LRArray[RUB] + LRArray[LUB]) / 4;
+        double Strap = (LRArray[LUS] + LRArray[RUS] / 2 + LRArray[LDS] + LRArray[RDS]) / 4;
+        if ((Strapl >= Strapl - 0/*Threshold*/) && (Back <= Backl + 0/*Threshold*/) || (Backl < 0)) {
             if (high == 1) {
                 pullStraps = -1;
             } else {
                 pullStraps = 1;
             }
-            if(((LRArray[LDS][1] + LRArray[RDS][1] + LRArray[RUS][1] + LRArray[LUS][1]) / 4) < -.05){
+            if(((LRArray[LDS] + LRArray[RDS] + LRArray[RUS] + LRArray[LUS]) / 4) < -.05){
                 pullStraps = 2;
+                //Why did I do this?
             }
         }
 
-        double[] out;
-        out = new double[4];
-        out[0] = pullStraps;
-        out[1] = Strap;
-        out[2] = Back;
-        out[3] = high;
-        return out[0];
+        Strapl = Strap;
+        Backl = Back;
+        return pullStraps;
     }
 
-    public double Weight_Analytics_COM(double[][] LRArray){
-        return 0.5*0.5*0.5/(2*(LRArray[LOAD][0]-Zero_Weight)/(2*0.000019*1665)*0.453592*9.81*((LRArray[LDB][0] + LRArray[RDB][0] + LRArray[RUB][0] + LRArray[LUB][0]) / 4) + a);
+    public double Weight_Analytics_COM(double[] LRArray){
+        return 0.5*0.5*0.5/(2*(LRArray[LOAD]-Zero_Weight)/(2*0.000019*1665)*0.453592*9.81*((LRArray[LDB] + LRArray[RDB] + LRArray[RUB] + LRArray[LUB]) / 4) + a);
     }
 
-    public double Weight_Analytics(double[][] LRArray2) {
-        double out = 0;
+    public int[] Weight_Analytics(double[] LRArray2) {
+        int[] out = new int[2];
+        int result = 0;
+        if(!Initialized)
+            Calibrate_Initial(LRArray2);
         switch (stage) {
             case 0:
-                out = Weight_Analytics_LR(LRArray2);
-                if (out == 0) {
-                    //even symmetry, send message
-                    out = 0;
-                    stage = 1;
+                result = (int) (Weight_Analytics_LR(LRArray2));
+                switch (result) {
+                    case 0:
+                        out[0] = -5;
+                        out[1] = -5;
+                        stage = 1;
+                        break;
+                    case -1:
+                        out[0] = 1;
+                        out[1] = 0;
+                        break;
+                    case 1:
+                        out[0] = 0;
+                        out[1] = 1;
+                        break;
+                    case 2:
+                        out[0] = -2;
+                        out[1] = -2;
+                        break;
+                    case 3:
+                        out[0] = -3;
+                        out[1] = -3;
+                        resetAnalyticsVariables();
+                        break;
+                    //0: even symmetry, send message
+                    //1:Loosen Right, Tighten Left
+                    //-1:Tighten Right, Loosen Left
+                    //2: Non-fatal error, ignore data
+                    //3: Fatal error exit stage
                 }
+
                 break;
             case 1:
                 //TODO: hide graph, show arrows
-                out = Weight_Analytics_UD(LRArray2, high, Backl, Strapl);
-                if ((out == 0) || (out == 2)) {
-                    //correct height
-                    //send message to stop adjusting
-                    stage = 2;
-                } /*else {
-                   TODO: show an arrow that tells user to raise or lower the pack
-                }*/
-                break;
-            case 2:
-                out = Weight_Analytics_COM(LRArray2);
-                if (out < .10) {
-                    //send message to move center of mass forward
-                    //TODO:Do we want other things to happen here?
+                result = (int) Weight_Analytics_UD(LRArray2);
+                switch (result) {
+                    case 0:
+                        out[0] = -6;
+                        out[1] = -6;
+                        stage = 1;
+                        break;
+                    case -1:
+                        out[0] = 1;
+                        out[1] = 1;
+                        break;
+                    case 1:
+                        out[0] = 0;
+                        out[1] = 0;
+                        break;
+                    case 2:
+                        out[0] = -2;
+                        out[1] = -2;
+                        break;
+                    case 3:
+                        out[0] = -3;
+                        out[1] = -3;
+                        resetAnalyticsVariables();
+                        break;
+                    //0: even symmetry, send message
+                    //1:Loosen Right, Tighten Left
+                    //-1:Tighten Right, Loosen Left
+                    //2: Non-fatal error, ignore data
+                    //3: Fatal error exit stage
                 }
                 break;
+            //case 2:
+            //    out = Weight_Analytics_COM(LRArray2);
+            //    if (out < .10) {
+            //send message to move center of mass forward
+            //TODO:Do we want other things to happen here?
+            //    }
+            //    break;
         }
         return out;
+    }
+
+    public boolean Verify_Model(double[]Packet, boolean back) {
+        if (Math.abs(Packet[RUS] - Packet[LUS] - (Packet[RDS] - Packet[LDS])) > 3) {
+            return true;
+        }
+        else
+            return false;
     }
 
     /**
@@ -251,11 +300,15 @@ public class EquipackAnalytics {
         int out = 0;
         double last = 0;
         for(int i = 0; i < 9; i++){
-            final double[][] TEST_INPUT_DYNAMIC = TestInputDynamic[i];
+            final double[] TEST_INPUT_DYNAMIC = TestInputDynamic[i][0];
+            final int[] tmp = new int[TEST_INPUT_DYNAMIC.length];
+            for(int t = 0; t < TEST_INPUT_DYNAMIC.length; t++){
+                tmp[t] = (int) TEST_INPUT_DYNAMIC[t];
+            }
             Callable<Double> analyze = new Callable<Double>() {
                 @Override
                 public Double call() throws Exception {
-                    return Weight_Analytics(TEST_INPUT_DYNAMIC);
+                    return Weight_Analytics_test( TEST_INPUT_DYNAMIC);
                 }
             };
 
@@ -369,6 +422,42 @@ public class EquipackAnalytics {
         DashboardFrag.setLeftUpArrowVisibility(View.INVISIBLE);
         DashboardFrag.setRightUpArrowVisibility(View.INVISIBLE);
         //DashboardFrag.setArrowLayoutVisibility(View.VISIBLE);
+    }
+
+    public double Weight_Analytics_test(double[] LRArray2) {
+        double out = 0;
+        if(!Initialized)
+            Calibrate_Initial(LRArray2);
+        switch (stage) {
+            case 0:
+                out = Weight_Analytics_LR(LRArray2);
+                if (out == 0) {
+                    //even symmetry, send message
+                    out = 0;
+                    stage = 1;
+                }
+
+                break;
+            case 1:
+                //TODO: hide graph, show arrows
+                out = Weight_Analytics_UD(LRArray2);
+                if ((out == 0) || (out == 2)) {
+                    //correct height
+                    //send message to stop adjusting
+                    stage = 2;
+                } /*else {
+                   TODO: show an arrow that tells user to raise or lower the pack
+                }*/
+                break;
+            case 2:
+                out = Weight_Analytics_COM(LRArray2);
+                if (out < .10) {
+                    //send message to move center of mass forward
+                    //TODO:Do we want other things to happen here?
+                }
+                break;
+        }
+        return out;
     }
 
     public void resetAnalyticsVariables() {

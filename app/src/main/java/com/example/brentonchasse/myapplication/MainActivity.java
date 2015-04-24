@@ -83,6 +83,8 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
     private boolean[] mCharacteristicPermissions = new boolean[3];
 
     private boolean mScanning;
+    private boolean mCalibrate = false;
+    private int calibrateIteration = 0;
 
     private static final int REQUEST_ENABLE_BT = 1;
     private static final long SCAN_PERIOD = 10000;
@@ -97,8 +99,9 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
 
     public byte[] cTurnOnPower;
     public byte[] cGetWeightData;
-    public byte[][] cSensor = new byte[8][];
+    public byte[] cSensor = new byte[8];
     public int[] mSensorData = {-1,-1,-1,-1,-1,-1,-1,-1};
+    public int[][] sensorOffset = new int[8][5];
     public int mCurrentSensorNumber = 0;
 
     public byte[] mPrefWriteValue;
@@ -129,14 +132,7 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
         mTitle = getTitle();
         cTurnOnPower = hexStringToByteArray("0301000000000000000000000000000000000000");
         cGetWeightData = hexStringToByteArray("0408000000000000000000000000000000000000");
-        cSensor[0] = hexStringToByteArray("04000D0000000000000000000000000000000000");
-        cSensor[1] = hexStringToByteArray("04010D0000000000000000000000000000000000");
-        cSensor[2] = hexStringToByteArray("04020D0000000000000000000000000000000000");
-        cSensor[3] = hexStringToByteArray("04030D0000000000000000000000000000000000");
-        cSensor[4] = hexStringToByteArray("04040D0000000000000000000000000000000000");
-        cSensor[5] = hexStringToByteArray("04050D0000000000000000000000000000000000");
-        cSensor[6] = hexStringToByteArray("04060D0000000000000000000000000000000000");
-        cSensor[7] = hexStringToByteArray("04070D0000000000000000000000000000000000");
+        cSensor = hexStringToByteArray("050b0d0d0d0b0b0b0d0000000000000000000000");
 
 
         // Set up the Navigation drawer.
@@ -380,7 +376,7 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
             //Set button back to "Powering" text
             WeightFrag.setGetWeightBtnTxt("Powering up...");
         } else if (SCANNING_MODE.equals("getSensors")) {
-            setCharacteristic(mCharacteristicWrite, cSensor[mCurrentSensorNumber]);
+            setCharacteristic(mCharacteristicWrite, cSensor);
         }
     }
     private void updateHandler(Object obj){
@@ -412,7 +408,7 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                 WeightFrag.setGetWeightBtnTxt("EquiPack Awake!");
             } else if (hexVal.charAt(1) == '4' && hexVal.charAt(3) == '8') {
                 getWeightHelper(byteVal);
-            } else if (hexVal.charAt(1) == '4') {
+            } else if (hexVal.charAt(1) == '5') {
                 getSensorHelper(byteVal);
             }
         }
@@ -423,7 +419,12 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
             //If the current sensor number matches the sensor number that we just received data for
 
             //get the sensor data from byteVal
-            int sensorData = ( ( (int)byteVal[1] << 256) & 0xFF ) + ( ( (int)byteVal[2] ) & 0xFF );
+            int sensorData[] = new int[8];
+            int counter = 0;
+            for(int i = 0; i < byteVal.length && counter < sensorData.length; i+=2){
+                sensorData[counter] = ( ( (int)byteVal[i+1] << 256) & 0xFF ) + ( ( (int)byteVal[i+2] ) & 0xFF );
+                counter++;
+            }
 
             try {
                 getSensorLock.acquire();
@@ -431,29 +432,46 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                 e.printStackTrace();
             }
             //put the sensor data in the array of data received
-            mSensorData[mCurrentSensorNumber] = sensorData;
-            getSensorLock.release();
+            //TODO: ignore noisy samples
+            //Only take the data if it's the first value
+            //  or the new point isn't "noisy"
+            //  or we have tried to get a non-noisy point 4 times already
+            //If the user requested to calibrate
+            if(mCalibrate && calibrateIteration <= 4) {
+                //Use this data-point as the offset for all future points
+                for(int i = 0; i < 8; i++){
+                    sensorOffset[i][calibrateIteration] = sensorData[i];
+                }
+            }
+            if(!mCalibrate || (mCalibrate && calibrateIteration > 4)) {
+                for (int i = 0; i < sensorData.length; i++) {
+                    mSensorData[i] = sensorData[i] - sensorOffset[i][0];
+                }
 
-            if(mCurrentSensorNumber == 7){
                 //handleSensorPacket is handling it's own synchronization (of mCurrentSensorNumber) within a spawned thread
                 handleSensorPacket(byteVal);
+                mCalibrate = false;
+                calibrateIteration = 0;
+                DashboardFrag.setCalBtnPressed(false);
             } else {
-                try {
-                    getSensorLock.acquire();
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
+                calibrateIteration ++;
+                int mode=0;
+                /*
+                 Get the median
+                 */
+                if(calibrateIteration == 5) {
+                    for (int s = 0; s < 8; s++) {
+                        for (int j = 1; j < 5; j++) {
+                            sensorOffset[s][0] += sensorOffset[s][j];
+                        }
+                        sensorOffset[s][0] = sensorOffset[s][0] / 5;
+                    }
                 }
-                mCurrentSensorNumber++;
-                getSensorLock.release();
             }
-            try {
-                getSensorLock.acquire();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
+
             //always do this, mCurrentSensorNumber is the same as before(if received data was for wrong sensor)
             //Otherwise mCurrentSensorNumber has been changed to the next sensor number that we need to get
-            setCharacteristic(mCharacteristicWrite, cSensor[mCurrentSensorNumber]);
+            setCharacteristic(mCharacteristicWrite, cSensor);
             getSensorLock.release();
         }
     }
@@ -495,11 +513,17 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                     } else {
                         //TODO: do colin's stuff
                         //8 unprocessed data points (one for each pressure sensor) are stored in the int[] mSensorData
-                        final int[] unprocessedDataSet = mSensorData;
-
+                        final double[] unprocessedDataSet = new double[mSensorData.length];
+                        for(int i=0; i<mSensorData.length; i++) {
+                            unprocessedDataSet[i] = mSensorData[i];
+                        }
                         //There is a global instance if your analytics called "analytics"
                         //Let's assume the new function is defined "public int colin(final int[] dataSetToProcess)"
-                        int[] feedbackReturnValue = analytics.colin(unprocessedDataSet);
+
+
+                        int[] feedbackReturnValue = analytics.Weight_Analytics(unprocessedDataSet);
+
+
                         //feedbackReturnVal should contain at least:
                         // at index:
                         //0:    binary (t/f) should left arrow point up  (-1 = no left arrow)
@@ -513,10 +537,10 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                          *                      0: int -> binary (1/0 = t/f): left arrow points up (1 = up, 0 = down, -1 = none)
                          *                      1: int -> binary (1/0 = t/f): right arrow points up (1 = up, 0 = down, -1 = none)
                          */
-                        analyticsUIUpdater(feedbackReturnValue);
+                        if(feedbackReturnValue[0] != -2 && feedbackReturnValue[1] != -2) //If result is not a non-update command
+                            analyticsUIUpdater(feedbackReturnValue);
                     }
                 }
-                mCurrentSensorNumber = 0;
                 getSensorLock.release();
             }
         }).start();
@@ -526,54 +550,53 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
         //args[0] = left arrow pointing up?
         //args[1] = right arrow pointing up?
 
-        //if both arg[0] and arg[1] == -1 means straps are symmetric
-        //if both arg[0] and arg[1] == -2 means analytics have completed and pack is optimal
-
         //Any possible combination of integer values for arg[0] and arg[1] will be cause a fail case
 
-        DashboardFrag.setArrows(arg[0], arg[1]);
+        /*
+         If the args indicate that there is a valid view to set the arrow to
+            0 = down
+            1 = up
+            -1 = inviz
+         */
+        if((arg[0] == 0 || arg[0] == 1 || arg[0] == -1) && (arg[1] == 0 || arg[1] == 1 || arg[1] == -1))
+            DashboardFrag.setArrows(arg[0], arg[1]);
+
 
         if(arg[0] == 1 && arg[1] == -1) {
             //lowers left side of backpack
-            //DashboardFrag.setArrows(up, inviz);
             DashboardFrag.setMessageText("Loosen left strap.");
         } else if (arg[0] == -1 && arg[1] == 1) {
             //lowers right side of backpack
-            //DashboardFrag.setArrows(inviz, up);
             DashboardFrag.setMessageText("Loosen right strap.");
         } else if (arg[0] == 0 && arg[1] == -1) {
             //raises left side of backpack
-            //DashboardFrag.setArrows(down, inviz);
             DashboardFrag.setMessageText("Tighten left strap.");
         } else if (arg[0] == -1 && arg[1] == 0) {
             //raises right side of backpack
-            //DashboardFrag.setArrows(inviz, down);
             DashboardFrag.setMessageText("Tighten right strap.");
         } else if (arg[0] == 1 && arg[1] == 1) {
             //lowers the backpack's height
-            //DashboardFrag.setArrows(up, up);
             DashboardFrag.setMessageText("Loosen both straps to lower bag.");
         } else if (arg[0] == -1 && arg[1] == -1) {
             //raises the backpack's height
-            //DashboardFrag.setArrows(down, down);
             DashboardFrag.setMessageText("Tighten both straps to raise bag.");
         } else if (arg[0] == 1 && arg[1] == 0) {
             //Shifts weight from left shoulder to right shoulder
-            //DashboardFrag.setArrows(up, down);
             DashboardFrag.setMessageText("Loosen left strap while tightening right strap.");
         } else if (arg[0] == 0 && arg[1] == 1) {
             //Shifts weight from right shoulder to left shoulder
-            //DashboardFrag.setArrows(down, up);
             DashboardFrag.setMessageText("Tighten left strap while loosening right strap.");
-        } else if (arg[0] == -1 && arg[1] == -1/*TODO: assuming this is how it might work?*/) {
+        } else if (arg[0] == -5 && arg[1] == -5) {
             //weight on both shoulders is correct
-            DashboardFrag.setMessageText("Straps are symmetric!");
-        } else if (arg[0] == -2 && arg[1] == -2/*TODO: assuming this is how it might work?*/) {
-            //optimized!
-            DashboardFrag.setMessageText("Pack's position has been optimized!");
+            DashboardFrag.setMessageText("Straps are symmetric.");
+        } else if (arg[0] == -6 && arg[1] == -6) {
+            DashboardFrag.setMessageText("Pack height is optimal.");
+        } else if (arg[0] == -4 && arg[1] == -4) {
+            DashboardFrag.setMessageText("Pack has been optimized!");
+        } else if (arg[0] == -3 && arg[1] == -3) {
+            DashboardFrag.setMessageText("Analytics have failed fatally.");
         } else {
-            // any failure cases need to be handled here
-            DashboardFrag.setMessageText("Analytics have failed.");
+            DashboardFrag.setMessageText("Unknown return from analytics.");
         }
 
     }
@@ -833,7 +856,7 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                     Only request if we aren't simulating
                  */
                 if(!DashboardFrag.isSimulating())
-                    setCharacteristic(mCharacteristicWrite, cSensor[mCurrentSensorNumber]);
+                    setCharacteristic(mCharacteristicWrite, cSensor);
             } else if (SCANNING_MODE.equals("getSensors")) {
                 //We are trying to stop scanning
                 DashboardFrag.setMessageText(getString(R.string.dashboard_graph_title));
@@ -896,6 +919,14 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                 SCANNING_MODE = "";
             else
                 SCANNING_MODE = "getWeight";
+        } else if (v == DashboardFrag.getCalBtn()) {
+            if(mCalibrate == false){
+                DashboardFrag.setCalBtnPressed(true);
+                mCalibrate = true;
+            } else {
+                DashboardFrag.setCalBtnPressed(false);
+                mCalibrate = false;
+            }
         }
     }
 
