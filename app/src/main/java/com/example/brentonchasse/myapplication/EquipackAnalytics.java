@@ -17,25 +17,21 @@ import java.util.concurrent.TimeUnit;
 public class EquipackAnalytics {
     private DashboardFragment DashboardFrag;
 
-    //Public and global statics
-    public static int Cycle_Size = 5;	//in Seconds
-    public static int Cycles = 10;
-    public static int Packet_Size = 10;
-    public static int Sampling_Freq = 60000; //in Hz
-    public static int LDS = 8;
-    public static int LUS = 1;
-    public static int RDS = 2;
-    public static int RUS = 3;
-    public static int LDB = 4;
-    public static int LUB = 5;
-    public static int RDB = 6;
-    public static int RUB = 7;
-    public static int LOAD = 0;
+    public static final int LDS = 2;
+    public static final int LUS = 4;
+    public static final int RDS = 1;
+    public static final int RUS = 0;
+    public static final int LDB = 3;
+    public static final int LUB = 7;
+    public static final int RDB = 5;
+    public static final int RUB = 6;
+    public static final int LOAD = 8;
     public static double a = 50;
     public static double Zero_Weight = 0.000140;
-    public static double Threshold = 0.1;
+    public static double Threshold = 1.5;
 
 
+    public double buffer[][] = new double[10][8];
     public double Backl = -1;
     public double Strapl = -1;
     public double high = 0;
@@ -103,37 +99,62 @@ public class EquipackAnalytics {
     /**
      * Weight Analytics
      */
-
-
-    public double[] Linear_Regression_Slope(int Sensor, int Cycle, double array[][])	{
-        double sumy = 0;
-        double avgx = 0;
-        double avgy = 0;
-        double Slope = 0;
-        double Value = 0;
-        double xx = 0;
-        double xy = 0;
-        double yy = 0;
-        for ( int i=Cycle_Size*Sampling_Freq*Cycle; i<Cycle_Size*Sampling_Freq; i++) {
-
-            sumy = array[Sensor][i] + sumy;
-            avgy = sumy / (Cycle_Size * Sampling_Freq);
-            avgx = (Cycle_Size * Sampling_Freq + 1) / 2;
+    public double[] Balance_for_cycling(double[] packet){
+        packet[0] /= 11;
+        packet[1] /= 13;
+        packet[2] /= 13;
+        packet[3] /= 11;
+        packet[4] /= 11;
+        packet[5] /= 10;
+        packet[6] /= 11;
+        packet[7] /= 13;
+        return packet;
+    }
+    public double[] convertToLbs(double[] packet){
+        double x;
+        for(int i=0;i<8;i++ ) {
+            x = packet[i];
+            switch (i) {
+                case LUB:
+                case LDB:
+                case RUB:
+                case RDB:
+                    packet[i] = x;
+                    break;
+                case LUS:
+                case LDS:
+                case RUS:
+                case RDS:
+                    packet[i]= 0.0165*x*x*x*x-0.1836*x*x*x+0.6745*x*x+0.0581*x;
+                    break;
+            }
         }
-        for( int i=Cycle_Size*Sampling_Freq*Cycle; i<Cycle_Size*Sampling_Freq; i++){
-            xx += (i - avgx) * (i - avgx);
-            yy += (array[Sensor][i] - avgy) * (array[Sensor][i] - avgy);
-            xy += (i - avgx) * (array[Sensor][i] - avgx);
+
+        return packet;
+    }
+    public void updateBuffer(double[] data){
+        for(int i=9;i>0;i--){
+            for(int s=0;s<8;s++){
+                buffer[i][s]=buffer[i-1][s];
+
+            }
         }
-        Slope=xy/xx;
+        for(int s=0;s<8;s++){
+            buffer[0][s]=data[s];
+        }
+    }
 
 
-        Value= avgy - Slope*avgx;
-        double[] out;
-        out = new double[2];
-        out[0] = Value;
-        out[1] = Slope;
-        return out;
+    public double[] getAverage(){
+        double[] result = {0,0,0,0,0,0,0,0};
+        for(int s=0;s<8;s++){
+            for(int i=0;i<10;i++){
+                result[s] = result[s]+buffer[i][s];
+            }
+            result[s]/=5;
+
+        }
+        return result;
     }
 
     public double Weight_Analytics_LR( double[] LRArray){
@@ -142,10 +163,32 @@ public class EquipackAnalytics {
         //Return -1: Loosen Left
         //Return 2: Error, Retest
         double [] LArray = LRArray.clone();
-        double LUStrap = LArray[LUS]-Init[LUS];
-        double LDStrap = LArray[LDS]-Init[LDS];
-        double RUStrap = LArray[RUS]-Init[RUS];
-        double RDStrap = LArray[RDS]-Init[RDS];
+        double[] average = new double[8];
+        average = getAverage();
+
+        for(int s=0;s<8;s++){
+            switch(s) {
+                case LUS:
+                case LDS:
+                case RDS:
+                case RUS:
+                    if(Math.abs(average[s]-LRArray[s])<10)
+                        return 2;
+                        break;
+                default:
+                    break;
+            }
+
+
+
+        }
+        LArray = convertToLbs(LArray);
+
+
+        double LUStrap = LArray[LUS];
+        double LDStrap = LArray[LDS];
+        double RUStrap = LArray[RUS];
+        double RDStrap = LArray[RDS];
         //average upper and lower
         double L = (LUStrap + LDStrap)/2;
         double R = (RUStrap + RDStrap)/2;
@@ -179,18 +222,46 @@ public class EquipackAnalytics {
 
         }
         double pullStraps = 0;
-        double Back = (LRArray[LDB] + LRArray[RDB] + LRArray[RUB] + LRArray[LUB]) / 4;
-        double Strap = (LRArray[LUS] + LRArray[RUS] / 2 + LRArray[LDS] + LRArray[RDS]) / 4;
+
+        double Back = (LRArray[LDB] + LRArray[RDB] + LRArray[RUB] + LRArray[LUB]) ;
+        double Strap = (LRArray[LUS] + LRArray[RUS] / 2 + LRArray[LDS] + LRArray[RDS]);
+        int backDen = 4;
+        int strapDen = 4;
+        for(int i = 0;i<8;i++){
+            if((LRArray[i] < -.05)||(LRArray[i]>18)) {
+                pullStraps = 2;
+                switch(i) {
+                    case LUB:
+                    case LDB:
+                    case RUB:
+                    case RDB:
+                        backDen--;
+                        Back = Back-LRArray[i];
+                        break;
+                    case LUS:
+                    case LDS:
+                    case RUS:
+                    case RDS:
+                        strapDen--;
+                        Strap = Strap - LRArray[i];
+                        break;
+
+
+                }
+
+
+                //Straps are negative
+            }
+        }
+
         if ((Strapl >= Strapl - 0/*Threshold*/) && (Back <= Backl + 0/*Threshold*/) || (Backl < 0)) {
+
             if (high == 1) {
                 pullStraps = -1;
             } else {
                 pullStraps = 1;
             }
-            if(((LRArray[LDS] + LRArray[RDS] + LRArray[RUS] + LRArray[LUS]) / 4) < -.05){
-                pullStraps = 2;
-                //Why did I do this?
-            }
+
         }
 
         Strapl = Strap;
@@ -203,10 +274,12 @@ public class EquipackAnalytics {
     }
 
     public int[] Weight_Analytics(double[] LRArray2) {
+        updateBuffer(LRArray2);
         int[] out = new int[2];
         int result = 0;
-        if(!Initialized)
-            Calibrate_Initial(LRArray2);
+        LRArray2 = Balance_for_cycling(LRArray2);
+        //if(!Initialized)
+        //    Calibrate_Initial(LRArray2);
         switch (stage) {
             case 0:
                 result = (int) (Weight_Analytics_LR(LRArray2));
@@ -274,7 +347,9 @@ public class EquipackAnalytics {
                     //3: Fatal error exit stage
                 }
                 break;
-            //case 2:
+            case 2:
+                out[0]=-2;
+                out[1]=-2;
             //    out = Weight_Analytics_COM(LRArray2);
             //    if (out < .10) {
             //send message to move center of mass forward

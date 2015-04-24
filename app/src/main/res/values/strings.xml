@@ -96,6 +96,7 @@
     <string name="bleButtonStates">bleButtonStates</string>
     <string name="new_data_input_hint">y-value</string>
     <string name="add_data_btn">Optimize!</string>
+    <string name="dash_cal_btn">Calibrate</string>
 
     <string name="dashboardGraphRestore">dashboardGraphRestore</string>
     <string name="dashboardGraphSeries">dashboardGraphSeries</string>

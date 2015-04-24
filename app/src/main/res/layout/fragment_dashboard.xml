@@ -48,7 +48,8 @@
             android:gravity="center"
             android:textAlignment="center"
             android:id="@+id/debugLayout"
-            android:layout_weight="0">
+            android:layout_weight="0"
+            android:visibility="visible">
 
             <LinearLayout
                 android:orientation="horizontal"
@@ -69,7 +70,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textAppearance="?android:attr/textAppearanceLarge"
-                        android:text="UL Back"
+                        android:text="S7"
                         android:id="@+id/ULBname"
                         android:layout_gravity="center"
                         android:textStyle="bold"/>
@@ -93,7 +94,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textAppearance="?android:attr/textAppearanceLarge"
-                        android:text="UL Strap"
+                        android:text="S6"
                         android:id="@+id/ULSname"
                         android:layout_gravity="center"
                         android:textStyle="bold"/>
@@ -118,10 +119,10 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textAppearance="?android:attr/textAppearanceLarge"
-                        android:text="UR Strap"
+                        android:text="S5"
                         android:id="@+id/URSname"
                         android:layout_gravity="center"
-                        />
+                        android:textStyle="bold"/>
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -142,7 +143,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textAppearance="?android:attr/textAppearanceLarge"
-                        android:text="UR Back"
+                        android:text="S4"
                         android:id="@+id/URBname"
                         android:layout_gravity="center"
                         android:textStyle="bold"/>
@@ -177,9 +178,10 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textAppearance="?android:attr/textAppearanceLarge"
-                        android:text="LL Strap"
+                        android:text="S3"
                         android:id="@+id/LLSname"
-                        android:layout_gravity="center"/>
+                        android:layout_gravity="center"
+                        android:textStyle="bold"/>
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -200,7 +202,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textAppearance="?android:attr/textAppearanceLarge"
-                        android:text="LR Back"
+                        android:text="S2"
                         android:id="@+id/LRBname"
                         android:layout_gravity="center"
                         android:textStyle="bold"/>
@@ -224,7 +226,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textAppearance="?android:attr/textAppearanceLarge"
-                        android:text="LR Strap"
+                        android:text="S1"
                         android:id="@+id/LRSname"
                         android:layout_gravity="center"
                         android:phoneNumber="true"
@@ -249,7 +251,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textAppearance="?android:attr/textAppearanceLarge"
-                        android:text="LL Back"
+                        android:text="S0"
                         android:id="@+id/LLBname"
                         android:layout_gravity="center"
                         android:textStyle="bold"/>
@@ -374,11 +376,24 @@
             android:layout_height="fill_parent"
             android:layout_weight="0">
 
-            <FrameLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_weight="0"
-                android:layout_gravity="center">
+            <LinearLayout
+                android:orientation="horizontal"
+                android:layout_width="fill_parent"
+                android:layout_height="fill_parent"
+                android:gravity="center">
+
+                <Button
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/dash_cal_btn"
+                    android:id="@+id/dashCalBtn"
+                    android:textSize="15sp"
+                    android:onClick="onFragmentClickEvent"
+                    android:textColor="#eeeeee"
+                    android:clickable="true"
+                    android:layout_weight="0"
+                    android:background="@drawable/rounded_corner"
+                    android:layout_marginRight="5dp"/>
 
                 <Button
                     android:layout_width="wrap_content"
@@ -391,8 +406,9 @@
                     android:clickable="true"
                     android:layout_weight="0"
                     android:background="@drawable/rounded_corner"
-                    />
-            </FrameLayout>
+                    android:layout_marginLeft="5dp"/>
+
+            </LinearLayout>
         </FrameLayout>
 
     </LinearLayout>

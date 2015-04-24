@@ -101,8 +101,10 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
     public byte[] cGetWeightData;
     public byte[] cSensor = new byte[8];
     public int[] mSensorData = {-1,-1,-1,-1,-1,-1,-1,-1};
-    public int[][] sensorOffset = new int[8][5];
+    public int[][] sensorOffset = new int[8][11];
     public int mCurrentSensorNumber = 0;
+    public double[] mSensorSum = {0,0,0,0,0,0,0,0};
+    public int averagingIter = 0;
 
     public byte[] mPrefWriteValue;
     public boolean polling = false;
@@ -295,6 +297,7 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                 }else if(SCANNING_MODE.equals("getSensors")) {
                     DashboardFrag.setMessageText("Connected");
                     DashboardFrag.setAddDataBtnEnabled(true, "STOP!");
+
                     DashboardFrag.setAddDataBtnColor(R.drawable.rounded_corner_red);
                 }
             } catch (RemoteException e) {
@@ -437,13 +440,13 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
             //  or the new point isn't "noisy"
             //  or we have tried to get a non-noisy point 4 times already
             //If the user requested to calibrate
-            if(mCalibrate && calibrateIteration <= 4) {
+            if(mCalibrate && calibrateIteration <= 10) {
                 //Use this data-point as the offset for all future points
                 for(int i = 0; i < 8; i++){
                     sensorOffset[i][calibrateIteration] = sensorData[i];
                 }
             }
-            if(!mCalibrate || (mCalibrate && calibrateIteration > 4)) {
+            if(!mCalibrate || (mCalibrate && calibrateIteration > 10)) {
                 for (int i = 0; i < sensorData.length; i++) {
                     mSensorData[i] = sensorData[i] - sensorOffset[i][0];
                 }
@@ -457,14 +460,18 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                 calibrateIteration ++;
                 int mode=0;
                 /*
-                 Get the median
+                 Get the mean
                  */
-                if(calibrateIteration == 5) {
+
+                if(calibrateIteration == 11) {
                     for (int s = 0; s < 8; s++) {
-                        for (int j = 1; j < 5; j++) {
-                            sensorOffset[s][0] += sensorOffset[s][j];
-                        }
-                        sensorOffset[s][0] = sensorOffset[s][0] / 5;
+                       java.util.Arrays.sort(sensorOffset[s]);
+                       sensorOffset[s][0] = sensorOffset[s][5];
+
+                //        for (int j = 1; j < 5; j++) {
+                //            sensorOffset[s][0] += sensorOffset[s][j];
+                //        }
+                //        sensorOffset[s][0] = sensorOffset[s][0] / 5;
                     }
                 }
             }
@@ -489,6 +496,15 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
             DashboardFrag.updateDebugData(data);
         } else {
             final int[] unprocessedDataSet = mSensorData;
+            /*final int[] unprocessedDataSet = new int[mSensorData.length];
+            unprocessedDataSet[0] = mSensorData[0];
+            unprocessedDataSet[1] = mSensorData[1];
+            unprocessedDataSet[2] = mSensorData[0];
+            unprocessedDataSet[3] = mSensorData[0];
+            unprocessedDataSet[4] = mSensorData[0];
+            unprocessedDataSet[5] = mSensorData[0];
+            unprocessedDataSet[6] = mSensorData[0];
+            unprocessedDataSet[7] = mSensorData[0];*/
             DashboardFrag.updateDebugData(unprocessedDataSet);
         }
     }
@@ -513,32 +529,40 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                     } else {
                         //TODO: do colin's stuff
                         //8 unprocessed data points (one for each pressure sensor) are stored in the int[] mSensorData
+
                         final double[] unprocessedDataSet = new double[mSensorData.length];
                         for(int i=0; i<mSensorData.length; i++) {
-                            unprocessedDataSet[i] = mSensorData[i];
+                            unprocessedDataSet[i] = (double) mSensorData[i];
+                            mSensorSum[i] =mSensorSum[i]+ unprocessedDataSet[i];
+
                         }
+                        averagingIter++;
                         //There is a global instance if your analytics called "analytics"
                         //Let's assume the new function is defined "public int colin(final int[] dataSetToProcess)"
 
+                        if(averagingIter==5) {
+                            int[] feedbackReturnValue = analytics.Weight_Analytics(unprocessedDataSet);
+                            for (int ii = 0; ii < mSensorSum.length; ii++)
+                                mSensorSum[ii] = 0;
+                            averagingIter = 0;
 
-                        int[] feedbackReturnValue = analytics.Weight_Analytics(unprocessedDataSet);
 
+                            //feedbackReturnVal should contain at least:
+                            // at index:
+                            //0:    binary (t/f) should left arrow point up  (-1 = no left arrow)
+                            //1:    binary (t/f) should right arrow point up (-1 = no right arrow)
+                            //2:    some indication of state change (if you need the total weight sensor data for example)
 
-                        //feedbackReturnVal should contain at least:
-                        // at index:
-                        //0:    binary (t/f) should left arrow point up  (-1 = no left arrow)
-                        //1:    binary (t/f) should right arrow point up (-1 = no right arrow)
-                        //2:    some indication of state change (if you need the total weight sensor data for example)
-
-                        /**
-                         * Brenton's half-pseudo for dashboard UI updates
-                         *
-                         * input: int[] with indexes:
-                         *                      0: int -> binary (1/0 = t/f): left arrow points up (1 = up, 0 = down, -1 = none)
-                         *                      1: int -> binary (1/0 = t/f): right arrow points up (1 = up, 0 = down, -1 = none)
-                         */
-                        if(feedbackReturnValue[0] != -2 && feedbackReturnValue[1] != -2) //If result is not a non-update command
-                            analyticsUIUpdater(feedbackReturnValue);
+                            /**
+                             * Brenton's half-pseudo for dashboard UI updates
+                             *
+                             * input: int[] with indexes:
+                             *                      0: int -> binary (1/0 = t/f): left arrow points up (1 = up, 0 = down, -1 = none)
+                             *                      1: int -> binary (1/0 = t/f): right arrow points up (1 = up, 0 = down, -1 = none)
+                             */
+                            if (feedbackReturnValue[0] != -2 && feedbackReturnValue[1] != -2) //If result is not a non-update command
+                                analyticsUIUpdater(feedbackReturnValue);
+                        }
                     }
                 }
                 getSensorLock.release();
@@ -577,7 +601,7 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
         } else if (arg[0] == 1 && arg[1] == 1) {
             //lowers the backpack's height
             DashboardFrag.setMessageText("Loosen both straps to lower bag.");
-        } else if (arg[0] == -1 && arg[1] == -1) {
+        } else if (arg[0] == 0 && arg[1] == 0) {
             //raises the backpack's height
             DashboardFrag.setMessageText("Tighten both straps to raise bag.");
         } else if (arg[0] == 1 && arg[1] == 0) {
@@ -596,7 +620,7 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
         } else if (arg[0] == -3 && arg[1] == -3) {
             DashboardFrag.setMessageText("Analytics have failed fatally.");
         } else {
-            DashboardFrag.setMessageText("Unknown return from analytics.");
+            DashboardFrag.setMessageText("Unknown return from analytics." + java.util.Arrays.toString(arg));
         }
 
     }
@@ -842,7 +866,7 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
             setNotifications(mCharacteristicRead, true);
         } else if (v == DashboardFrag.getAddDataBtn()) {
             boolean debugging = DashboardFrag.isDebugging();
-
+            boolean resuming = false;
             if(!mConnected) {
                 DashboardFrag.setMessageText("Searching for device...");
                 DashboardFrag.setAddDataBtnEnabled(false, "Searching");
@@ -855,6 +879,8 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
                     Start requesting sensor data with this command
                     Only request if we aren't simulating
                  */
+                SCANNING_MODE.equals("getSensors");
+                resuming = true;
                 if(!DashboardFrag.isSimulating())
                     setCharacteristic(mCharacteristicWrite, cSensor);
             } else if (SCANNING_MODE.equals("getSensors")) {
@@ -874,8 +900,20 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
 
 
             if (!DashboardFrag.isDebugging()) {
-                DashboardFrag.setAddDataBtnEnabled(false, "Processing");
-                DashboardFrag.setAddDataBtnColor(R.drawable.rounded_corner_pressed);
+                if(SCANNING_MODE.equals("getSensors")) {
+                    if(!resuming) {
+                        DashboardFrag.setAddDataBtnEnabled(false, "Processing");
+                        DashboardFrag.setAddDataBtnColor(R.drawable.rounded_corner_pressed);
+                    } else {
+                        resuming = false;
+                        DashboardFrag.setAddDataBtnEnabled(true, "STOP!");
+                        DashboardFrag.setAddDataBtnColor(R.drawable.rounded_corner_red);
+                    }
+                } else {
+                    DashboardFrag.setAddDataBtnEnabled(true, "Optimize!");
+                    DashboardFrag.setAddDataBtnColor(R.drawable.rounded_corner);
+                }
+                //Todo:Enable button after finished processing
                 if (DashboardFrag.isSimulating()) {
                     new Thread(new Runnable() {
                         @Override
@@ -888,6 +926,10 @@ public class MainActivity extends Activity implements NavigationDrawerFragment.N
             }
 
         } else if (v == WeightFrag.getCalibrateBtn()) {
+            //TODO: On Calibrate reset weight optimization stages and stop optimization
+
+            //
+
             if(!doCalibrate)
                 WeightFrag.getCalibrateBtn().setBackground(getResources().getDrawable(android.R.drawable.button_onoff_indicator_on));
             else if (doCalibrate)
